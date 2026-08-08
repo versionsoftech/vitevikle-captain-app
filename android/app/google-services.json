@@ -1,0 +1,146 @@
+{
+  "project_info": {
+    "project_number": "902490577207",
+    "firebase_url": "https://vitevikle-d6eb4-default-rtdb.firebaseio.com",
+    "project_id": "vitevikle-d6eb4",
+    "storage_bucket": "vitevikle-d6eb4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:902490577207:android:dd0053031ad8a47f1ea2b2",
+        "android_client_info": {
+          "package_name": "com.vitecaptain.driver"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "902490577207-6np9gf7bobreq2qqgso9ap5ud82cr8l3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vitecaptain.driver",
+            "certificate_hash": "2e2b6d4abcceb80d8c325ed413914ab2704da97c"
+          }
+        },
+        {
+          "client_id": "902490577207-g99m22r7qn2hoc52h9jf75tesrlhhv3k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vitecaptain.driver",
+            "certificate_hash": "2e9194a083bac76345b9c1a05ea7bf0a82a0d447"
+          }
+        },
+        {
+          "client_id": "902490577207-isv1g4fdj62pq454nfl4in05pc3674s2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-zJdRrlCcpUSltO9j-KkmZ3jem80Z25E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "902490577207-isv1g4fdj62pq454nfl4in05pc3674s2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:902490577207:android:820f6d51045aef771ea2b2",
+        "android_client_info": {
+          "package_name": "com.vitevikle.customer.ride"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "902490577207-ha64tku2bpl2vvsih7vede2p186n85e6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vitevikle.customer.ride",
+            "certificate_hash": "170533446e4976b0033fb4cdba7f8961bafed8fc"
+          }
+        },
+        {
+          "client_id": "902490577207-lcd19p045vbkiaghqbonjq3d2oroabjl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vitevikle.customer.ride",
+            "certificate_hash": "357d07fbcbf00f7e358e362fecde7b322c902d2a"
+          }
+        },
+        {
+          "client_id": "902490577207-isv1g4fdj62pq454nfl4in05pc3674s2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-zJdRrlCcpUSltO9j-KkmZ3jem80Z25E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "902490577207-isv1g4fdj62pq454nfl4in05pc3674s2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:902490577207:android:78fa0528f7478dfa1ea2b2",
+        "android_client_info": {
+          "package_name": "com.viteway"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "902490577207-gk2tarpr19u8est5ef0esflhtpfsms1e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.viteway",
+            "certificate_hash": "6423a7821d5987f979a95c35ebfe7de028b89ec3"
+          }
+        },
+        {
+          "client_id": "902490577207-mfgn9158ll20huejb5j05t88ap4c9b7c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.viteway",
+            "certificate_hash": "a14d11466ab2f960fe2bf37b2f6e7c60bd7ecffa"
+          }
+        },
+        {
+          "client_id": "902490577207-isv1g4fdj62pq454nfl4in05pc3674s2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-zJdRrlCcpUSltO9j-KkmZ3jem80Z25E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "902490577207-isv1g4fdj62pq454nfl4in05pc3674s2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
