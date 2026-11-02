@@ -33,7 +33,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(children: children),
@@ -52,10 +52,10 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -78,7 +78,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Preferences'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
       ),

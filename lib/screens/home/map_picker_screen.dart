@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:vite_captain/maps/mappls_geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
 
 class MapPickerScreen extends StatefulWidget {
   const MapPickerScreen({
@@ -22,8 +23,8 @@ class MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
-  final Completer<GoogleMapController> _mapController =
-      Completer<GoogleMapController>();
+  final Completer<MapplsViewController> _mapController =
+      Completer<MapplsViewController>();
 
   late LatLng _cameraTarget;
   bool _loadingAddress = false;
@@ -112,7 +113,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: GoogleMap(
+            child: MapplsView(
               initialCameraPosition: CameraPosition(
                 target: _cameraTarget,
                 zoom: 16,
@@ -148,11 +149,11 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     child: Container(
                       height: 44,
                       width: 44,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black),
+                      child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
                     ),
                   ),
                   InkWell(
@@ -160,11 +161,11 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     child: Container(
                       height: 44,
                       width: 44,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.my_location, color: Colors.black),
+                      child: Icon(Icons.my_location, color: Theme.of(context).colorScheme.onSurface),
                     ),
                   ),
                 ],
@@ -182,8 +183,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 16,
                 16 + MediaQuery.of(context).padding.bottom,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
@@ -204,7 +205,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: ViteLoader(strokeWidth: 2),
                         ),
                     ],
                   ),
@@ -212,7 +213,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFE5E7EB)),
                     ),
@@ -237,10 +238,10 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                                 _addressSubtitle.trim().isEmpty
                                     ? 'Lat: ${_cameraTarget.latitude.toStringAsFixed(5)}, Lng: ${_cameraTarget.longitude.toStringAsFixed(5)}'
                                     : _addressSubtitle,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],

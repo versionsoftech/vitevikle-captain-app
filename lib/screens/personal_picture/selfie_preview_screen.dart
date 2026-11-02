@@ -31,7 +31,7 @@ class SelfiePreviewScreen extends StatelessWidget {
                   width: 280,
                   height: 280,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
+                    color: Theme.of(context).colorScheme.surface.withOpacity(0.06),
                     shape: BoxShape.circle,
                   ),
                   child: ClipOval(
@@ -73,7 +73,7 @@ class SelfiePreviewScreen extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF369D01),
+                        backgroundColor: const Color(0xFF009640),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

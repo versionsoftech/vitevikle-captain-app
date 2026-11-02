@@ -1,11 +1,13 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
+import 'package:vite_captain/maps/open_mappls_navigation.dart';
 import 'package:slide_to_act/slide_to_act.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vite_captain/screens/activity/activity_screen.dart';
@@ -15,16 +17,16 @@ import 'package:vite_captain/screens/home/home_map_screen.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/location_service.dart';
+import 'package:vite_captain/services/ride_bubble.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/widgets/send_ride_notification_sheet.dart';
 
 class DriverRideInProgressScreen extends StatefulWidget {
   final Map<String, dynamic> ride;
-  final String googleApiKey;
 
   const DriverRideInProgressScreen({
     super.key,
     required this.ride,
-    required this.googleApiKey,
   });
 
   @override
@@ -32,13 +34,12 @@ class DriverRideInProgressScreen extends StatefulWidget {
 }
 
 class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen> {
-  static const themeGreen = Color(0xFF22C55E);
+  static const themeGreen = Color(0xFF009640);
   static const double _dropArrivedDistanceMeters = 30;
 
-  final PolylinePoints _polylinePoints = PolylinePoints();
   final GlobalKey<SlideActionState> _endSlideKey = GlobalKey<SlideActionState>();
 
-  GoogleMapController? _map;
+  MapplsViewController? _map;
   StreamSubscription<Position>? _positionSub;
 
   LatLng? _driverLatLng;
@@ -122,10 +123,15 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
     _startTimer();
     _startLiveLocation();
     _loadRideDetails();
+    RideBubble.start(
+      title: 'Ride in progress',
+      body: 'Tap the green bubble to return to this ride',
+    );
   }
 
   @override
   void dispose() {
+    RideBubble.stop();
     _timer?.cancel();
     _timer = null;
     _rideStatusTimer?.cancel();
@@ -349,36 +355,10 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
     return LatLng(p.latitude + dLat, p.longitude + dLng);
   }
 
-  Uri _buildDirectionsUri({required LatLng origin, required LatLng destination, required String apiKey}) {
-    return Uri.https(
-      'maps.googleapis.com',
-      '/maps/api/directions/json',
-      <String, String>{
-        'origin': '${origin.latitude},${origin.longitude}',
-        'destination': '${destination.latitude},${destination.longitude}',
-        'mode': 'driving',
-        'key': apiKey,
-      },
-    );
-  }
-
   Future<void> _loadRoute(LatLng origin, LatLng destination) async {
-    final apiKey = widget.googleApiKey.trim();
-    if (apiKey.isEmpty) return;
-
     try {
-      final result = await _polylinePoints.getRouteBetweenCoordinates(
-        googleApiKey: apiKey,
-        request: PolylineRequest(
-          origin: PointLatLng(origin.latitude, origin.longitude),
-          destination: PointLatLng(destination.latitude, destination.longitude),
-          mode: TravelMode.driving,
-        ),
-      );
-
-      final decoded = (result.points.isNotEmpty)
-          ? result.points.map((p) => LatLng(p.latitude, p.longitude)).toList(growable: false)
-          : <LatLng>[origin, destination];
+      final route = await fetchMapplsRoute(origin, destination);
+      final decoded = route?.points ?? <LatLng>[origin, destination];
 
       if (!mounted) return;
       _routePoints = decoded;
@@ -413,22 +393,12 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
   }
 
   Future<void> _openGoogleNavigation(LatLng destination) async {
-    final navUrl = Uri.parse('google.navigation:q=${destination.latitude},${destination.longitude}&mode=d');
-    final webUrl = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=driving',
-    );
-
-    try {
-      final ok = await canLaunchUrl(navUrl);
-      if (ok) {
-        await launchUrl(navUrl, mode: LaunchMode.externalApplication);
-        return;
-      }
-    } catch (_) {}
-
-    try {
-      await launchUrl(webUrl, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+    final opened = await openMapplsNavigation(destination);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Install the Mappls app to navigate')),
+      );
+    }
   }
 
   Future<void> _handleDriverLocationUpdate(LatLng driver, {double? heading, double? speedMps}) async {
@@ -662,12 +632,12 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           top: false,
           child: Stack(
             children: [
-              GoogleMap(
+              MapplsView(
                 initialCameraPosition: CameraPosition(
                   target: driver ?? drop ?? const LatLng(20.5937, 78.9629),
                   zoom: 16,
@@ -689,7 +659,7 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: const [
                       BoxShadow(color: Color(0x22000000), blurRadius: 12, offset: Offset(0, 6)),
@@ -701,14 +671,32 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
                       const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('End the ride', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('End the ride', style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w800)),
                           SizedBox(height: 2),
-                          Text("Please don't be late", style: TextStyle(color: Colors.grey)),
+                          Text("Please don't be late", style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w600)),
                         ],
                       ),
-                      Text(
-                        _formatTimer(_elapsedSeconds),
-                        style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w900, fontSize: 16),
+                      Row(
+                        children: [
+                          Material(
+                            color: const Color(0xFF4038FF).withValues(alpha: 0.12),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => showSendRideNotificationSheet(context, widget.ride),
+                              child: const SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: Icon(Icons.notifications_rounded, color: Color(0xFF4038FF), size: 18),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatTimer(_elapsedSeconds),
+                            style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w900, fontSize: 16),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -722,7 +710,7 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: const [
                       BoxShadow(color: Color(0x22000000), blurRadius: 12, offset: Offset(0, 6)),
@@ -761,8 +749,8 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
               alignment: Alignment.bottomCenter,
               child: Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   boxShadow: [
                     BoxShadow(color: Color(0x22000000), blurRadius: 16, offset: Offset(0, -6)),
@@ -897,7 +885,7 @@ class _DriverRideInProgressScreenState extends State<DriverRideInProgressScreen>
                 child: SizedBox(
                   height: 22,
                   width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: ViteLoader(strokeWidth: 2),
                 ),
               ),
             ],

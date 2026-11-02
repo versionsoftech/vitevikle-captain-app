@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/screens/policy_screen.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  Widget _row({
+  Widget _row(BuildContext context, {
     required String title,
     required String value,
     bool showArrow = false,
@@ -22,10 +22,10 @@ class AboutScreen extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -47,11 +47,11 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  Widget _card({required List<Widget> children}) {
+  Widget _card(BuildContext context, {required List<Widget> children}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(children: children),
@@ -68,22 +68,22 @@ class AboutScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('About'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: _card(
+          child: _card(context,
             children: [
-              _row(title: 'App name', value: 'ViteVikle'),
+              _row(context, title: 'App name', value: 'ViteVikle'),
               Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-              _row(title: 'App version', value: '8.99.0'),
+              _row(context, title: 'App version', value: '8.99.0'),
               Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-              _row(title: 'Company', value: 'ViteVikle', showArrow: false),
+              _row(context, title: 'Company', value: 'ViteVikle', showArrow: false),
               Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-              _row(
+              _row(context, 
                 title: 'Privacy Policy',
                 value: 'View',
                 showArrow: true,
@@ -96,7 +96,7 @@ class AboutScreen extends StatelessWidget {
                 },
               ),
               Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-              _row(
+              _row(context, 
                 title: 'Terms & Conditions',
                 value: 'View',
                 showArrow: true,

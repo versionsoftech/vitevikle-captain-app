@@ -1,7 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:vite_captain/modules/status/driver_under_review_screen.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class DriverDocumentsUploadScreen extends StatefulWidget {
   const DriverDocumentsUploadScreen({
@@ -78,11 +80,7 @@ class _DriverDocumentsUploadScreenState extends State<DriverDocumentsUploadScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Upload Documents'),
-        backgroundColor: const Color(0xFF369D01),
-        foregroundColor: Colors.white,
-      ),
+      appBar: curvedGreenAppBar(title: 'Upload Documents'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -122,7 +120,7 @@ class _DriverDocumentsUploadScreenState extends State<DriverDocumentsUploadScree
                       ? const SizedBox(
                           height: 22,
                           width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                          child: ViteLoader(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                         )
                       : const Text('Submit', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),

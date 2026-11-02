@@ -15,7 +15,7 @@ class ClaimsScreen extends StatelessWidget {
     );
   }
 
-  Widget _coverageRow({
+  Widget _coverageRow(BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
@@ -25,7 +25,7 @@ class ClaimsScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 22, color: Colors.black87),
+          Icon(icon, size: 22, color: Theme.of(context).colorScheme.onSurface),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -33,10 +33,10 @@ class ClaimsScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -55,7 +55,7 @@ class ClaimsScreen extends StatelessWidget {
     );
   }
 
-  Widget _legalRow({
+  Widget _legalRow(BuildContext context, {
     required String title,
     required VoidCallback onView,
   }) {
@@ -66,10 +66,10 @@ class ClaimsScreen extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -158,7 +158,7 @@ class ClaimsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFEBEE),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFEF9A9A)),
               ),
@@ -186,24 +186,24 @@ class ClaimsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 children: [
-                  _coverageRow(
+                  _coverageRow(context, 
                     icon: Icons.personal_injury_outlined,
                     title: 'Personal Accident/Accidental Death',
                     subtitle: 'Up to ₹5,00,000',
                   ),
                   Divider(height: 1, thickness: 0.6, color: Colors.grey.shade200),
-                  _coverageRow(
+                  _coverageRow(context, 
                     icon: Icons.local_hospital_outlined,
                     title: 'Medical Expense for Hospitalization',
                     subtitle: 'Up to ₹1,00,000',
                   ),
                   Divider(height: 1, thickness: 0.6, color: Colors.grey.shade200),
-                  _coverageRow(
+                  _coverageRow(context, 
                     icon: Icons.medical_services_outlined,
                     title: 'OPD Treatment',
                     subtitle: 'Up to ₹3000',
@@ -217,14 +217,14 @@ class ClaimsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 children: [
-                  _legalRow(title: 'Claim Procedure', onView: () {}),
+                  _legalRow(context, title: 'Claim Procedure', onView: () {}),
                   Divider(height: 1, thickness: 0.6, color: Colors.grey.shade200),
-                  _legalRow(title: 'Terms and Conditions', onView: () {}),
+                  _legalRow(context, title: 'Terms and Conditions', onView: () {}),
                 ],
               ),
             ),

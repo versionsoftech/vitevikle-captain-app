@@ -1,12 +1,13 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
+import 'package:vite_captain/maps/mappls_geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/api_service.dart';
@@ -23,12 +24,10 @@ class ParcelDropMapScreen extends StatefulWidget {
 }
 
 class _ParcelDropMapScreenState extends State<ParcelDropMapScreen> {
-  static const String _googleApiKey = 'AIzaSyCgfyPk2RQlRS7OTkYGSk2OjOcdbzKzivc';
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
 
-  final PolylinePoints _polylinePoints = PolylinePoints();
 
-  GoogleMapController? _map;
+  MapplsViewController? _map;
   bool _loading = true;
   bool _completing = false;
 
@@ -308,63 +307,21 @@ class _ParcelDropMapScreenState extends State<ParcelDropMapScreen> {
     }
   }
 
-  Uri _buildDirectionsUri({
-    required LatLng origin,
-    required LatLng destination,
-  }) {
-    return Uri.https(
-      'maps.googleapis.com',
-      '/maps/api/directions/json',
-      <String, String>{
-        'origin': '${origin.latitude},${origin.longitude}',
-        'destination': '${destination.latitude},${destination.longitude}',
-        'mode': 'driving',
-        'key': _googleApiKey,
-      },
-    );
-  }
-
   Future<void> _loadRoute(LatLng origin, LatLng destination) async {
     try {
-      final res = await DioClient.dio.get(
-        _buildDirectionsUri(origin: origin, destination: destination).toString(),
-      );
-
-      dynamic raw = res.data;
-      if (raw is String) raw = jsonDecode(raw);
-      final data = raw as Map<String, dynamic>;
-      final routes = (data['routes'] as List<dynamic>? ?? []);
-      if (routes.isEmpty) return;
-
-      final route0 = routes.first as Map<String, dynamic>;
-      final overview = (route0['overview_polyline'] as Map<String, dynamic>?) ?? {};
-      final encoded = (overview['points'] as String?) ?? '';
-      if (encoded.isEmpty) return;
-
-      final decoded = _polylinePoints
-          .decodePolyline(encoded)
-          .map((p) => LatLng(p.latitude, p.longitude))
-          .toList(growable: false);
-
-      final legs = (route0['legs'] as List<dynamic>? ?? []);
-      String? distance;
-      String? duration;
-      if (legs.isNotEmpty) {
-        final leg0 = legs.first as Map<String, dynamic>;
-        distance = (leg0['distance'] as Map<String, dynamic>?)?['text']?.toString();
-        duration = (leg0['duration'] as Map<String, dynamic>?)?['text']?.toString();
-      }
+      final route = await fetchMapplsRoute(origin, destination);
+      if (route == null) return;
 
       if (!mounted) return;
       setState(() {
-        _distanceText = distance;
-        _durationText = duration;
-        _routePoints = decoded.isNotEmpty ? decoded : [origin, destination];
+        _distanceText = route.distanceText;
+        _durationText = route.durationText;
+        _routePoints = route.points;
         _polylines = {
           Polyline(
             polylineId: const PolylineId('driver_to_drop'),
             points: _routePoints,
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             width: 4,
           ),
         };
@@ -417,7 +374,7 @@ class _ParcelDropMapScreenState extends State<ParcelDropMapScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Ride Completed âœ…'),
-          backgroundColor: Colors.green,
+          backgroundColor: const Color(0xFF009640),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -467,7 +424,7 @@ class _ParcelDropMapScreenState extends State<ParcelDropMapScreen> {
       ),
       body: Stack(
         children: [
-          GoogleMap(
+          MapplsView(
             initialCameraPosition: CameraPosition(target: init, zoom: 12),
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
@@ -486,7 +443,7 @@ class _ParcelDropMapScreenState extends State<ParcelDropMapScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: const [
                     BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 4)),
@@ -526,7 +483,7 @@ class _ParcelDropMapScreenState extends State<ParcelDropMapScreen> {
                       ? const SizedBox(
                           height: 18,
                           width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: ViteLoader(strokeWidth: 2, color: Colors.white),
                         )
                       : const Text('COMPLETE RIDE', style: TextStyle(fontWeight: FontWeight.w900)),
                 ),
@@ -535,8 +492,8 @@ class _ParcelDropMapScreenState extends State<ParcelDropMapScreen> {
           ),
           if (_loading)
             Container(
-              color: Colors.white.withOpacity(0.75),
-              child: const Center(child: CircularProgressIndicator(color: _green)),
+              color: Theme.of(context).colorScheme.surface.withOpacity(0.75),
+              child: const Center(child: ViteLoader(color: _green)),
             ),
         ],
       ),

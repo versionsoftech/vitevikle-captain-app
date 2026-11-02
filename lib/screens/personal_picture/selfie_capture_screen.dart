@@ -1,4 +1,5 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -25,7 +26,7 @@ class SelfieCaptureScreen extends StatefulWidget {
 }
 
 class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
 
   final CameraService _cameraService = CameraService();
   final FaceDetectorService _faceService = FaceDetectorService();
@@ -538,7 +539,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
       ),
       body: SafeArea(
         child: _initializing
-            ? const Center(child: CircularProgressIndicator(color: _green))
+            ? const Center(child: ViteLoader(color: _green))
             : _locked
                 ? _readonlyCard()
                 : (_cameraService.controller == null)
@@ -595,7 +596,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.45),
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Row(
@@ -656,7 +657,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                                 child: SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2.6, color: Colors.white),
+                                  child: ViteLoader(strokeWidth: 2.6, color: Colors.white),
                                 ),
                               ),
                             ),

@@ -1,9 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vite_captain/controllers/profile_controller.dart';
 import 'package:vite_captain/screens/personal_picture/personal_picture_instruction_screen.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/services/api_service.dart';
+import 'package:vite_captain/screens/select_service_area_screen.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -18,6 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _ecName = '';
   String _ecPhone = '';
   String _ecRelation = '';
+  String _country = '';
+  String _stateName = '';
   late Future<Map<String, String>> _userBasicsFuture;
   bool _isSavingDob = false;
   bool _accountReviewRequired = false;
@@ -31,6 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _hydrateDob();
       await _hydrateEmergencyContact();
       await _checkAccountReviewStatus();
+      await _hydrateServiceArea();
     });
   }
 
@@ -48,6 +53,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _hydrateServiceArea() async {
+    try {
+      final token = (await const SessionService().getToken() ?? '').trim();
+      if (token.isEmpty) return;
+      final res = await const ApiService().getDriverProfile(token: token);
+      final data = res['success'] == true ? res['data'] : null;
+      if (data is! Map || !mounted) return;
+      final address = data['address'];
+      final country = address is Map ? (address['country'] ?? data['country'] ?? '').toString().trim() : (data['country'] ?? '').toString().trim();
+      final stateName = address is Map ? (address['state'] ?? data['state'] ?? '').toString().trim() : (data['state'] ?? '').toString().trim();
+      setState(() {
+        _country = country;
+        _stateName = stateName;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _openServiceAreaSheet() async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SelectServiceAreaScreen(initialState: _stateName),
+      ),
+    );
+    if (saved == true) {
+      await _hydrateServiceArea();
+    }
   }
 
   Future<void> _hydrateEmergencyContact() async {
@@ -217,7 +251,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final changed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -323,10 +357,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -368,23 +402,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : '${_ecName} ${_ecPhone}${_ecRelation.isNotEmpty ? ' • ' + _ecRelation : ''}';
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Profile'),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: curvedGreenAppBar(
+        title: 'Profile',
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.only(right: 12),
             child: OutlinedButton.icon(
               onPressed: () {},
               icon: const Icon(Icons.help_outline, size: 18),
               label: const Text('Help'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.black87,
-                side: BorderSide(color: Colors.grey.shade300),
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -392,9 +422,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ],
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
       ),
       body: SafeArea(
         child: Padding(
@@ -519,6 +546,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       value: email.isNotEmpty ? email : 'Required',
                       highlightValue: email.isEmpty,
                       onTap: () => _openEditEmailSheet(context, email),
+                    ),
+                    _profileRow(
+                      icon: Icons.public_outlined,
+                      title: 'Country',
+                      value: _country.isEmpty ? 'India' : _country,
+                      onTap: _openServiceAreaSheet,
+                    ),
+                    _profileRow(
+                      icon: Icons.map_outlined,
+                      title: 'State',
+                      value: _stateName.isEmpty ? 'Select zone' : _stateName,
+                      highlightValue: _stateName.isEmpty,
+                      onTap: _openServiceAreaSheet,
                     ),
                     _profileRow(
                       icon: Icons.person_pin_outlined,

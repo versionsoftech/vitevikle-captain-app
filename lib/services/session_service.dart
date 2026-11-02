@@ -1,7 +1,23 @@
-﻿import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vite_captain/services/api_service.dart';
+
+bool _sessionNameIsPhone(String value) {
+  final compact = value.replaceAll(RegExp(r'\s'), '');
+  final digits = compact.replaceAll(RegExp(r'\D'), '');
+  return digits.length >= 8 && digits.length >= compact.length - 2;
+}
+
+String _sessionPersonName(Map data) {
+  const keys = ['fullName', 'full_name', 'driver_name', 'driverName', 'name', 'username'];
+  for (final key in keys) {
+    final value = (data[key] ?? '').toString().trim();
+    if (value.isEmpty || value.toLowerCase() == 'null') continue;
+    if (!_sessionNameIsPhone(value)) return value;
+  }
+  return '';
+}
 
 class SessionService {
   static const String _tokenKey = 'user_token';
@@ -409,7 +425,7 @@ class SessionService {
       mobile = cachedMobile.trim().isNotEmpty ? cachedMobile : ((await getMobile()) ?? '');
     }
 
-    final needsHydration = name.trim().isEmpty || (mobile.trim().isEmpty) || (email.trim().isEmpty) || id.trim().isEmpty;
+    final needsHydration = name.trim().isEmpty || _sessionNameIsPhone(name) || (mobile.trim().isEmpty) || (email.trim().isEmpty) || id.trim().isEmpty;
 
     if ((forceRefresh || needsHydration) && token != null && token.trim().isNotEmpty) {
       final profile = await const ApiService().getDriverProfile(token: token.trim());
@@ -417,14 +433,14 @@ class SessionService {
       if (profile['success'] == true && driverData is Map) {
         final m = Map<String, dynamic>.from(driverData);
         final dynamic maybeId = m['id'] ?? m['_id'] ?? m['driverId'];
-        final dynamic maybeName = m['name'] ?? m['fullName'] ?? m['username'];
+        final pickedName = _sessionPersonName(m);
         final dynamic maybeEmail = m['email'];
         final dynamic maybePhone = m['phone'] ?? m['mobile'];
         final dynamic maybeDateOfBirth = m['dateOfBirth'] ?? m['dob'];
         final dynamic maybeImage = m['image'] ?? m['image_url'] ?? m['imageUrl'] ?? m['profile_image'] ?? m['avatar'];
 
         if (maybeId != null && maybeId.toString().trim().isNotEmpty) id = maybeId.toString();
-        if (maybeName != null && maybeName.toString().trim().isNotEmpty) name = maybeName.toString();
+        if (pickedName.isNotEmpty) name = pickedName;
         if (maybeEmail != null && maybeEmail.toString().trim().isNotEmpty) email = maybeEmail.toString();
         if (maybePhone != null && maybePhone.toString().trim().isNotEmpty) mobile = maybePhone.toString();
         if (maybeDateOfBirth != null && maybeDateOfBirth.toString().trim().isNotEmpty && maybeDateOfBirth.toString() != 'null') dateOfBirth = maybeDateOfBirth.toString();
@@ -461,14 +477,14 @@ class SessionService {
       if (user is Map) {
         final m = Map<String, dynamic>.from(user);
         final dynamic maybeId = m['id'] ?? m['_id'] ?? m['user_id'] ?? m['userId'];
-        final dynamic maybeName = m['name'] ?? m['fullName'] ?? m['username'];
+        final pickedName = _sessionPersonName(m);
         final dynamic maybeEmail = m['email'];
         final dynamic maybePhone = m['phone'] ?? m['mobile'];
         final dynamic maybeDateOfBirth = m['dateOfBirth'] ?? m['dob'];
         final dynamic maybeImage = m['image'] ?? m['profile_image'] ?? m['avatar'] ?? m['user_image'];
 
         if (maybeId != null && maybeId.toString().trim().isNotEmpty) id = maybeId.toString();
-        if (maybeName != null && maybeName.toString().trim().isNotEmpty) name = maybeName.toString();
+        if (pickedName.isNotEmpty && (_sessionNameIsPhone(name) || name.trim().isEmpty)) name = pickedName;
         if (maybeEmail != null && maybeEmail.toString().trim().isNotEmpty) email = maybeEmail.toString();
         if (maybePhone != null && maybePhone.toString().trim().isNotEmpty) mobile = maybePhone.toString();
         if (maybeDateOfBirth != null && maybeDateOfBirth.toString().trim().isNotEmpty && maybeDateOfBirth.toString() != 'null') dateOfBirth = maybeDateOfBirth.toString();

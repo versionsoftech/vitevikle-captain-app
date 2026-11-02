@@ -1,8 +1,8 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vite_captain/maps/mappls_geocoding.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
 import 'package:vite_captain/screens/home/drop_location_screen.dart';
 
 class SelectOnMapScreen extends StatefulWidget {
@@ -13,8 +13,8 @@ class SelectOnMapScreen extends StatefulWidget {
 }
 
 class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
-  final Completer<GoogleMapController> _controller =
-      Completer<GoogleMapController>();
+  final Completer<MapplsViewController> _controller =
+      Completer<MapplsViewController>();
 
   static const LatLng _defaultTarget = LatLng(30.3398, 76.3869);
   LatLng _cameraTarget = _defaultTarget;
@@ -78,7 +78,7 @@ class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: GoogleMap(
+            child: MapplsView(
               initialCameraPosition: const CameraPosition(
                 target: _defaultTarget,
                 zoom: 16,
@@ -117,11 +117,11 @@ class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
                   child: Container(
                     height: 44,
                     width: 44,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.arrow_back, color: Colors.black),
+                    child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
                   ),
                 ),
               ),
@@ -138,8 +138,8 @@ class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
                 16,
                 16 + MediaQuery.of(context).padding.bottom,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
@@ -147,13 +147,13 @@ class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
                 children: [
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Select your location',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -179,7 +179,7 @@ class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFE5E7EB)),
                     ),
@@ -197,10 +197,10 @@ class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
                             children: [
                               Text(
                                 _addressTitle,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 14,
-                                  color: Colors.black,
+                                  color: Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -208,10 +208,10 @@ class _SelectOnMapScreenState extends State<SelectOnMapScreen> {
                                 _addressSubtitle.trim().isEmpty
                                     ? 'Lat: ${_cameraTarget.latitude.toStringAsFixed(5)}, Lng: ${_cameraTarget.longitude.toStringAsFixed(5)}'
                                     : _addressSubtitle,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 12,
-                                  color: Color(0xFF64748B),
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],

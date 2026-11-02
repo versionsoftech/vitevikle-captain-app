@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +8,7 @@ import 'package:vite_captain/screens/document_capture_instruction_screen.dart';
 import 'package:vite_captain/screens/document_selfie_camera_screen.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class DynamicDocumentVerificationScreen extends StatefulWidget {
   const DynamicDocumentVerificationScreen({
@@ -228,7 +229,7 @@ class _DynamicDocumentVerificationScreenState extends State<DynamicDocumentVerif
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE5E7EB)),
           boxShadow: const [
@@ -250,9 +251,9 @@ class _DynamicDocumentVerificationScreenState extends State<DynamicDocumentVerif
                           key: ValueKey<String>(path),
                           fit: BoxFit.cover,
                         )
-                      : const Center(
+                      : Center(
                           key: ValueKey<String>('empty'),
-                          child: Icon(Icons.add, size: 30, color: Colors.black87),
+                          child: Icon(Icons.add, size: 30, color: Theme.of(context).colorScheme.onSurface),
                         ),
                 ),
               ),
@@ -296,15 +297,12 @@ class _DynamicDocumentVerificationScreenState extends State<DynamicDocumentVerif
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: Text(widget.config.name, style: const TextStyle(fontWeight: FontWeight.w900)),
+      appBar: curvedGreenAppBar(
+        title: widget.config.name,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w900)),
+            child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -379,7 +377,7 @@ class _DynamicDocumentVerificationScreenState extends State<DynamicDocumentVerif
                       Expanded(
                         child: Text(
                           status == DocumentStatus.approved ? 'Approved' : 'Pending',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black87),
+                          style: TextStyle(fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface),
                         ),
                       ),
                     ],

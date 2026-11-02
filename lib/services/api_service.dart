@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -217,43 +217,29 @@ class ApiService {
     }
   }
 
+  bool _htmlPaymentMessage(Object? raw) {
+    final msg = (raw ?? '').toString().toLowerCase();
+    return msg.contains('cannot post') || msg.contains('<!doctype') || msg.contains('<html');
+  }
+
   Future<Map<String, dynamic>> walletReceivedRide({
     required String rideId,
+    String rideType = 'normal',
   }) async {
+    final type = rideType.trim().isEmpty ? 'normal' : rideType.trim();
     final uri = Uri.parse('$baseUrl/ride/wallet-received');
-    final fallbackBase = baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
-    final fallbackUri = Uri.parse('$fallbackBase/ride/wallet-received');
+    final payloadBody = {
+      'ride_id': rideId,
+      'rideId': rideId,
+      'booking_id': rideId,
+      'bookingId': rideId,
+    };
 
-    try {
-      final payloadBody = {
-        'ride_id': rideId,
-        'rideId': rideId,
-        'booking_id': rideId,
-        'bookingId': rideId,
-      };
-
-      Response response = await DioClient.dio.post(
-        uri.toString(),
-        data: payloadBody,
-        options: Options(
-          validateStatus: (_) => true,
-          headers: const {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-          },
-        ),
-      );
-
-      int statusCode = response.statusCode ?? 0;
-      dynamic decoded = _tryDecode(response.data);
-      Map<String, dynamic> payload = _asMapResponse(decoded, statusCode: statusCode);
-
-      final message = (payload['message'] ?? '').toString();
-      final shouldRetry = statusCode == 404 || message.contains('Cannot POST');
-      if (shouldRetry && fallbackUri.toString() != uri.toString()) {
-        response = await DioClient.dio.post(
-          fallbackUri.toString(),
+    var confirmed = false;
+    if (type.toLowerCase() != 'intercity') {
+      try {
+        final response = await DioClient.dio.post(
+          uri.toString(),
           data: payloadBody,
           options: Options(
             validateStatus: (_) => true,
@@ -264,23 +250,23 @@ class ApiService {
             },
           ),
         );
-        statusCode = response.statusCode ?? 0;
-        decoded = _tryDecode(response.data);
-        payload = _asMapResponse(decoded, statusCode: statusCode);
-      }
-
-      if (statusCode < 200 || statusCode >= 300) {
-        return {
-          'success': false,
-          'message': (payload['message'] ?? 'Payment confirmation failed').toString(),
-          'raw': payload,
-        };
-      }
-
-      return payload;
-    } catch (_) {
-      return {'success': false, 'message': 'Something went wrong. Please try again.'};
+        final statusCode = response.statusCode ?? 0;
+        final payload = _asMapResponse(_tryDecode(response.data), statusCode: statusCode);
+        final message = (payload['message'] ?? '').toString();
+        confirmed = statusCode >= 200 && statusCode < 300 && payload['success'] != false && !_htmlPaymentMessage(message);
+        if (confirmed) return payload;
+      } catch (_) {}
     }
+
+    final token = (await const SessionService().getToken())?.trim() ?? '';
+    if (token.isEmpty) {
+      return {'success': false, 'message': 'Could not confirm the payment. Please try again.'};
+    }
+    final fallback = await confirmCashReceived(token: token, rideId: rideId, rideType: type);
+    if (_htmlPaymentMessage(fallback['message'])) {
+      return {'success': false, 'message': 'Could not confirm the payment. Please try again.'};
+    }
+    return fallback;
   }
 
   Future<Map<String, dynamic>> checkPaymentStatus({
@@ -1491,6 +1477,97 @@ class ApiService {
     } catch (_) {
       return {'success': false, 'message': 'Something went wrong. Please try again.'};
     }
+  }
+
+  Future<Map<String, dynamic>> _driverGet(String path, String token) async {
+    try {
+      final response = await DioClient.dio.get(
+        Uri.parse('$baseUrl$path').toString(),
+        options: Options(
+          validateStatus: (_) => true,
+          headers: {
+            'Authorization': 'Bearer ${token.trim()}',
+            'Cache-Control': 'no-cache',
+          },
+        ),
+      );
+      final statusCode = response.statusCode ?? 0;
+      final decoded = _tryDecode(response.data);
+      final payload = _asMapResponse(decoded, statusCode: statusCode);
+      if (statusCode == 404) {
+        return {'success': false, 'message': 'Pass ride is not active on the server yet. Upload the seat-share files and restart Node.'};
+      }
+      if (payload['success'] == null && statusCode >= 200 && statusCode < 300) payload['success'] = true;
+      return payload;
+    } catch (_) {
+      return {'success': false, 'message': 'Something went wrong. Please try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _driverPost(String path, String token, Map<String, dynamic> data) async {
+    try {
+      final response = await DioClient.dio.post(
+        Uri.parse('$baseUrl$path').toString(),
+        data: data,
+        options: Options(
+          validateStatus: (_) => true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${token.trim()}',
+          },
+        ),
+      );
+      final statusCode = response.statusCode ?? 0;
+      final decoded = _tryDecode(response.data);
+      final payload = _asMapResponse(decoded, statusCode: statusCode);
+      if (statusCode == 404) {
+        return {'success': false, 'message': 'Pass ride is not active on the server yet. Upload the seat-share files and restart Node.'};
+      }
+      if (payload['success'] == null && statusCode >= 200 && statusCode < 300) payload['success'] = true;
+      return payload;
+    } catch (_) {
+      return {'success': false, 'message': 'Something went wrong. Please try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getIntercitySeatMatches({
+    required String token,
+    required String requestId,
+  }) {
+    return _driverGet('/driver/intercity/seat-matches?request_id=${Uri.encodeQueryComponent(requestId)}', token);
+  }
+
+  Future<Map<String, dynamic>> offerIntercitySeats({
+    required String token,
+    required String requestId,
+    required String hostRideId,
+  }) {
+    return _driverPost('/driver/intercity/offer-seats', token, {
+      'request_id': requestId,
+      'host_ride_id': hostRideId,
+    });
+  }
+
+  Future<Map<String, dynamic>> getIntercitySeatBoard({required String token}) {
+    return _driverGet('/driver/intercity/seat-board', token);
+  }
+
+  Future<Map<String, dynamic>> acceptIntercitySeatShare({
+    required String token,
+    required String requestId,
+    required String hostRideId,
+  }) {
+    return _driverPost('/driver/intercity/accept-seat-share', token, {
+      'request_id': requestId,
+      'host_ride_id': hostRideId,
+    });
+  }
+
+  Future<Map<String, dynamic>> declineIntercitySeatShare({
+    required String token,
+    required String requestId,
+  }) {
+    return _driverPost('/driver/intercity/decline-seat-share', token, {'request_id': requestId});
   }
 
   Future<Map<String, dynamic>> acceptIntercityRequest({
@@ -3211,6 +3288,9 @@ class ApiService {
     String? email,
     String? dateOfBirth,
     String? gender,
+    String? country,
+    String? state,
+    String? city,
   }) async {
     final uri = Uri.parse('$baseUrl/driver/profile');
 
@@ -3220,6 +3300,9 @@ class ApiService {
         if (email != null) 'email': email.trim(),
         if (dateOfBirth != null) 'dateOfBirth': dateOfBirth.trim(),
         if (gender != null) 'gender': gender.trim(),
+        if (country != null) 'country': country.trim(),
+        if (state != null) 'state': state.trim(),
+        if (city != null) 'city': city.trim(),
       };
 
       final response = await DioClient.dio.post(

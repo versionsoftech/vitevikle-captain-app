@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 
 class EmergencyContactEntry {
@@ -176,9 +177,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                       backgroundColor: Colors.grey.shade200,
                       child: Text(
                         firstLetter,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -242,9 +243,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                   backgroundColor: Colors.grey.shade200,
                   child: Text(
                     firstLetter,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -326,7 +327,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
         return false;
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -334,7 +335,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           ),
           title: const Text('Emergency Contacts'),
           actions: [_helpButton()],
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Colors.black,
           elevation: 1,
         ),
@@ -342,7 +343,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: ViteLoader())
                 : !_permissionGranted
                     ? _permissionDenied()
                     : Column(

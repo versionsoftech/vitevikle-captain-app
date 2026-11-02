@@ -26,10 +26,38 @@
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>tel</string>
+			<string>telprompt</string>
+			<string>https</string>
+			<string>http</string>
+			<string>comgooglemaps</string>
+			<string>googlemaps</string>
+		</array>
+		<key>NSCameraUsageDescription</key>
+		<string>Vite Captain uses the camera for your profile selfie and documents.</string>
+		<key>NSContactsUsageDescription</key>
+		<string>Vite Captain uses your contacts when you pick a phone number.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>We use your location to show nearby drivers and set your pickup point.</string>
+		<string>Vite Captain uses your location to receive nearby rides and navigate to the passenger.</string>
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>We use your location to show nearby drivers and set your pickup point.</string>
+		<string>Vite Captain uses your location in the background while you are on duty so ride requests and navigation stay accurate.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Vite Captain uses the microphone when you record a profile selfie.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Vite Captain uses your photos when you upload a document or profile picture.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Vite Captain saves a photo only when you choose to keep one.</string>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>audio</string>
+			<string>fetch</string>
+			<string>location</string>
+			<string>remote-notification</string>
+		</array>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>

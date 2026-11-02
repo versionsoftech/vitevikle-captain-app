@@ -11,7 +11,7 @@ class ReferFriendsScreen extends StatelessWidget {
       backgroundColor: Colors.grey.shade100,
 
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         foregroundColor: Colors.black,
         leading: IconButton(
@@ -25,9 +25,9 @@ class ReferFriendsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () {},
-            child: const Text(
+            child: Text(
               'FAQs',
-              style: TextStyle(color: Colors.black),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
           )
         ],
@@ -130,7 +130,7 @@ class ReferFriendsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Row(
@@ -175,7 +175,7 @@ class ReferFriendsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Column(
@@ -216,10 +216,10 @@ class ReferFriendsScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {},
-                  child: const Text(
+                  child: Text(
                     'Invite 202 Friends to Rapido',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

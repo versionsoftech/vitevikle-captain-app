@@ -1,4 +1,5 @@
-﻿import 'dart:convert';
+import 'dart:convert';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -85,14 +86,14 @@ class _ActivityScreenState extends State<ActivityScreen> {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('Activity'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: ViteLoader())
             : _rides.isEmpty
                 ? ListView(
                     children: const [
@@ -120,7 +121,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: const [
                             BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
@@ -151,7 +152,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                                 ),
                                 Text(
                                   status,
-                                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green),
+                                  style: const TextStyle(fontWeight: FontWeight.w700, color: const Color(0xFF009640)),
                                 ),
                               ],
                             ),

@@ -1,13 +1,17 @@
-﻿import 'dart:convert';
+import 'dart:convert';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:flutter/material.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:dio/dio.dart';
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class BankDetailsScreen extends StatefulWidget {
-  const BankDetailsScreen({super.key});
+  final bool startEditing;
+
+  const BankDetailsScreen({super.key, this.startEditing = false});
 
   @override
   State<BankDetailsScreen> createState() => _BankDetailsScreenState();
@@ -123,7 +127,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
           _emailController.text = (bankMap['email'] ?? '').toString();
           _payoutMethod = (bankMap['payout_method'] ?? 'bank_transfer').toString().trim();
           _bankStatus = (bankMap['status'] ?? 'pending').toString().trim();
-          _isReadOnly = true;
+          _isReadOnly = !widget.startEditing;
         } else {
           _bankStatus = 'not_submitted';
           _isReadOnly = false;
@@ -210,7 +214,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
         ],
@@ -236,12 +240,13 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
 
+    final updating = _bankData != null;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) {
         return AlertDialog(
-          title: const Text('Confirm'),
-          content: const Text('Submit bank details? You cannot edit later.'),
+          title: Text(updating ? 'Update bank' : 'Confirm'),
+          content: Text(updating ? 'Save these bank details?' : 'Submit bank details?'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
             ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
@@ -304,8 +309,9 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
         return;
       }
 
-      _showSnack('Bank details submitted successfully');
-      await _load();
+      _showSnack(updating ? 'Bank details updated' : 'Bank details submitted successfully');
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } finally {
       if (mounted) {
         setState(() {
@@ -319,21 +325,18 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('Bank Details', style: TextStyle(fontWeight: FontWeight.w900)),
+      appBar: curvedGreenAppBar(
+        title: 'Bank Details',
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w900)),
+            child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
       body: SafeArea(
         child: _hydrating
-            ? const Center(child: CircularProgressIndicator(color: _primary))
+            ? const Center(child: ViteLoader(color: _primary))
             : Form(
                 key: _formKey,
                 child: ListView(
@@ -421,27 +424,27 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: (_isReadOnly || _submitting) ? null : _submit,
+                        onPressed: _submitting
+                            ? null
+                            : () {
+                                if (_isReadOnly) {
+                                  setState(() => _isReadOnly = false);
+                                  return;
+                                }
+                                _submit();
+                              },
                         child: _submitting
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                                child: ViteLoader(strokeWidth: 2.5, color: Colors.white),
                               )
                             : Text(
-                                _isReadOnly ? 'Already Submitted' : 'Submit',
+                                _isReadOnly ? 'Change Bank' : (_bankData == null ? 'Submit' : 'Update Bank'),
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                               ),
                       ),
                     ),
-                    if (_isReadOnly) ...[
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Submitted details are locked.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w700),
-                      ),
-                    ],
                   ],
                 ),
               ),

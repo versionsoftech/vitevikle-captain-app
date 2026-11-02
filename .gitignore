@@ -57,8 +57,11 @@ ios/Podfile.lock
 error_log.txt
 .flutter-plugins
 .flutter-plugins-dependencies
-adb
-flutter
-Get
-Run
-flutter_01.png
+/adb
+/flutter
+/Get
+/Run
+/flutter_01.png
+*.olf
+*.a.conf
+android/app/src/debug/assets/

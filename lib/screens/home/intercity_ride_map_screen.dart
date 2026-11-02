@@ -1,7 +1,9 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
+import 'package:vite_captain/maps/open_mappls_navigation.dart';
 import 'package:vite_captain/models/intercity_request.dart';
 
 class IntercityRideMapScreen extends StatefulWidget {
@@ -17,12 +19,13 @@ class IntercityRideMapScreen extends StatefulWidget {
 }
 
 class _IntercityRideMapScreenState extends State<IntercityRideMapScreen> {
-  GoogleMapController? _map;
+  MapplsViewController? _map;
 
   late final LatLng _pickup;
   late final LatLng _drop;
 
   late final Set<Marker> _markers;
+  Set<Polyline> _routes = <Polyline>{};
 
   @override
   void initState() {
@@ -44,6 +47,22 @@ class _IntercityRideMapScreenState extends State<IntercityRideMapScreen> {
         infoWindow: const InfoWindow(title: 'Drop'),
       ),
     };
+    _loadRoute();
+  }
+
+  Future<void> _loadRoute() async {
+    final route = await fetchMapplsRoute(_pickup, _drop);
+    if (!mounted) return;
+    setState(() {
+      _routes = <Polyline>{
+        Polyline(
+          polylineId: const PolylineId('intercity_route'),
+          points: route?.points ?? <LatLng>[_pickup, _drop],
+          color: const Color(0xFF009640),
+          width: 5,
+        ),
+      };
+    });
   }
 
   Future<void> _fitBounds() async {
@@ -64,19 +83,52 @@ class _IntercityRideMapScreenState extends State<IntercityRideMapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF369D01),
+        backgroundColor: const Color(0xFF009640),
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
         title: Text(name),
       ),
-      body: GoogleMap(
-        initialCameraPosition: CameraPosition(target: _pickup, zoom: 12),
-        markers: _markers,
-        myLocationEnabled: true,
-        myLocationButtonEnabled: true,
-        onMapCreated: (c) async {
-          _map = c;
-          await _fitBounds();
-        },
+      body: Stack(
+        children: [
+          MapplsView(
+            initialCameraPosition: CameraPosition(target: _pickup, zoom: 12),
+            markers: _markers,
+            polylines: _routes,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            onMapCreated: (c) async {
+              _map = c;
+              await _fitBounds();
+            },
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 16,
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF009640), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () => openMapplsNavigation(_pickup),
+                    icon: const Icon(Icons.navigation_rounded),
+                    label: const Text('Navigate pickup'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF111827), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () => openMapplsNavigation(_drop),
+                    icon: const Icon(Icons.flag_rounded),
+                    label: const Text('Navigate drop'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

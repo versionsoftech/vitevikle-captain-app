@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/models/intercity_request.dart';
 import 'package:vite_captain/screens/home/intercity_ride_map_screen.dart';
 import 'package:vite_captain/screens/intercity/intercity_payment_screen.dart';
@@ -34,9 +34,9 @@ class _IntercityPaymentMethodScreenState extends State<IntercityPaymentMethodScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
         title: const Text('Select Payment Method', style: TextStyle(fontWeight: FontWeight.w900)),
@@ -71,7 +71,7 @@ class _IntercityPaymentMethodScreenState extends State<IntercityPaymentMethodScr
                 height: 54,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF369D01),
+                    backgroundColor: const Color(0xFF009640),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -117,16 +117,16 @@ class _IntercityPaymentMethodScreenState extends State<IntercityPaymentMethodScr
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF369D01).withOpacity(0.08) : Colors.white,
+          color: isSelected ? const Color(0xFF009640).withOpacity(0.08) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF369D01) : Colors.grey.shade300,
+            color: isSelected ? const Color(0xFF009640) : Colors.grey.shade300,
             width: 2,
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF369D01) : Colors.grey.shade600),
+            Icon(icon, color: isSelected ? const Color(0xFF009640) : Colors.grey.shade600),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -134,7 +134,7 @@ class _IntercityPaymentMethodScreenState extends State<IntercityPaymentMethodScr
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? const Color(0xFF369D01) : Colors.black87,
+                  color: isSelected ? const Color(0xFF009640) : Colors.black87,
                 ),
               ),
             ),

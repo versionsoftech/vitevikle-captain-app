@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:vite_captain/providers/auth_provider.dart' as app_auth;
@@ -29,8 +30,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
 
-  static const Color primaryGreen = Color(0xFF0FA958);
-  static const Color darkGreen = Color(0xFF369D01);
+  static const Color primaryGreen = Color(0xFF009640);
+  static const Color darkGreen = Color(0xFF009640);
   static const Color inputFillGrey = Color(0xFFF1F1F1);
   static const Color inactiveTabText = Color(0xFF6B7280);
 
@@ -320,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen>
             ? const SizedBox(
                 height: 22,
                 width: 22,
-                child: CircularProgressIndicator(
+                child: ViteLoader(
                   strokeWidth: 2.4,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
@@ -446,7 +447,7 @@ class _LoginScreenState extends State<LoginScreen>
     final double headerHeight = keyboardOpen ? 0 : expandedHeaderHeight;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -522,11 +523,11 @@ class _LoginScreenState extends State<LoginScreen>
                                 const SizedBox(height: 14),
                                 TextButton(
                                   onPressed: () {},
-                                  child: const Text(
+                                  child: Text(
                                     "Skip",
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: Colors.black87,
+                                      color: Theme.of(context).colorScheme.onSurface,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -546,11 +547,11 @@ class _LoginScreenState extends State<LoginScreen>
                                 const SizedBox(height: 14),
                                 TextButton(
                                   onPressed: () {},
-                                  child: const Text(
+                                  child: Text(
                                     "Skip",
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: Colors.black87,
+                                      color: Theme.of(context).colorScheme.onSurface,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),

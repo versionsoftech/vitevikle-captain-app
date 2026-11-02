@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/screens/personal_picture/selfie_capture_screen.dart';
 
@@ -10,7 +10,7 @@ class PersonalPictureInstructionScreen extends StatefulWidget {
 }
 
 class _PersonalPictureInstructionScreenState extends State<PersonalPictureInstructionScreen> {
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
   static const Color _lightGreen = Color(0xFFB7E11A);
 
   static const SessionService _session = SessionService();
@@ -57,9 +57,9 @@ class _PersonalPictureInstructionScreenState extends State<PersonalPictureInstru
   Widget build(BuildContext context) {
     if (_locked) {
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Colors.black87,
           elevation: 0,
           centerTitle: true,
@@ -84,9 +84,9 @@ class _PersonalPictureInstructionScreenState extends State<PersonalPictureInstru
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Upload Your Profile Photo',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.black87),
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -148,9 +148,9 @@ class _PersonalPictureInstructionScreenState extends State<PersonalPictureInstru
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         centerTitle: true,
@@ -175,9 +175,9 @@ class _PersonalPictureInstructionScreenState extends State<PersonalPictureInstru
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Upload Your Profile Photo',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.black87),
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(height: 6),
               Text(
@@ -330,7 +330,7 @@ class _PersonalPictureInstructionScreenState extends State<PersonalPictureInstru
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black87, height: 1.25),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, height: 1.25),
           ),
         ),
       ],

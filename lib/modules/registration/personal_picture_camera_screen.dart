@@ -1,4 +1,5 @@
-﻿import 'package:camera/camera.dart';
+import 'package:camera/camera.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:vite_captain/modules/registration/personal_picture_preview_screen.dart';
 
@@ -17,7 +18,7 @@ class PersonalPictureCameraScreen extends StatefulWidget {
 }
 
 class _PersonalPictureCameraScreenState extends State<PersonalPictureCameraScreen> {
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
 
   CameraController? _controller;
   bool _initializing = true;
@@ -143,7 +144,7 @@ class _PersonalPictureCameraScreenState extends State<PersonalPictureCameraScree
       ),
       body: SafeArea(
         child: _initializing
-            ? const Center(child: CircularProgressIndicator(color: _green))
+            ? const Center(child: ViteLoader(color: _green))
             : (_error != null)
                 ? Center(
                     child: Padding(
@@ -221,7 +222,7 @@ class _PersonalPictureCameraScreenState extends State<PersonalPictureCameraScree
                                 height: 74,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 4),
+                                  border: Border.all(color: Theme.of(context).colorScheme.surface, width: 4),
                                 ),
                                 child: Center(
                                   child: Container(

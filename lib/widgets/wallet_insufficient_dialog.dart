@@ -26,7 +26,7 @@ Future<void> showWalletInsufficientDialog(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: ConstrainedBox(

@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:vite_captain/screens/auth/login_screen.dart';
 import 'package:vite_captain/services/local_storage_service.dart';
 
@@ -57,6 +58,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
+    );
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -64,14 +74,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: LayoutBuilder(
           builder: (context, constraints) {
             final double imageHeight = constraints.maxHeight * 0.5;
-            final double contentHeight = constraints.maxHeight * 0.5;
             return Column(
               children: [
                 SizedBox(
@@ -85,26 +98,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       });
                     },
                     itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(44),
-                            bottomRight: Radius.circular(44),
-                          ),
-                          child: Image.asset(
-                            onboardingData[index]['image']!,
-                            width: double.infinity,
-                            height: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
+                      return ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(44),
+                          bottomRight: Radius.circular(44),
+                        ),
+                        child: Image.asset(
+                          onboardingData[index]['image']!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
                         ),
                       );
                     },
                   ),
                 ),
-                SizedBox(
-                  height: contentHeight,
+                Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
                     child: Column(
@@ -113,20 +123,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Text(
                           onboardingData[currentPage]['title']!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF111111),
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 14),
                         Text(
                           onboardingData[currentPage]['desc']!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF8A8A8A),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             height: 1.45,
                           ),
                         ),
@@ -152,7 +162,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(height: 26),
+                        const Spacer(),
                         SizedBox(
                           width: double.infinity,
                           height: 56,
@@ -180,12 +190,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         const SizedBox(height: 26),
                         GestureDetector(
                           onTap: _skip,
-                          child: const Text(
+                          child: Text(
                             'Skip',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF8A8A8A),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),

@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +7,7 @@ import 'package:vite_captain/modules/registration/document_camera_screen.dart';
 import 'package:vite_captain/providers/document_verification_provider.dart';
 import 'package:vite_captain/screens/document_capture_instruction_screen.dart';
 import 'package:vite_captain/screens/document_selfie_camera_screen.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class PanVerificationScreen extends StatefulWidget {
   const PanVerificationScreen({super.key});
@@ -126,7 +127,7 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
             child: Container(
               height: 92,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE5E7EB)),
                 boxShadow: const [
@@ -148,9 +149,9 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
                                 key: ValueKey<String>(path),
                                 fit: BoxFit.cover,
                               )
-                            : const Center(
+                            : Center(
                                 key: ValueKey<String>('empty'),
-                                child: Icon(Icons.add, size: 30, color: Colors.black87),
+                                child: Icon(Icons.add, size: 30, color: Theme.of(context).colorScheme.onSurface),
                               ),
                       ),
                     ),
@@ -179,7 +180,7 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
           ),
@@ -192,15 +193,12 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('PAN Card', style: TextStyle(fontWeight: FontWeight.w900)),
+      appBar: curvedGreenAppBar(
+        title: 'PAN Card',
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w900)),
+            child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -231,7 +229,7 @@ class _PanVerificationScreenState extends State<PanVerificationScreen> {
                       Expanded(
                         child: Text(
                           status == DocumentStatus.approved ? 'Approved' : 'Pending',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black87),
+                          style: TextStyle(fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface),
                         ),
                       ),
                     ],

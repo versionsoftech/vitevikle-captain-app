@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:vite_captain/services/api_service.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 class CancellationReasonSheet {
   static Future<Map<String, String>?> show({
@@ -67,10 +68,10 @@ class CancellationReasonSheet {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         effectiveTop,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -85,7 +86,7 @@ class CancellationReasonSheet {
                         future: const ApiService().getCancellationReasons(type: safeType),
                         builder: (ctx, snap) {
                           if (snap.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
+                            return const Center(child: ViteLoader());
                           }
 
                           final payload = snap.data ?? <String, dynamic>{};
@@ -207,7 +208,7 @@ class CancellationReasonSheet {
                                   ? const SizedBox(
                                       height: 18,
                                       width: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: ViteLoader(strokeWidth: 2, color: Colors.white),
                                     )
                                   : Text(confirmText),
                             ),

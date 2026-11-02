@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io';
 import 'package:provider/provider.dart';
@@ -15,6 +15,7 @@ import 'providers/document_verification_provider.dart';
 import 'providers/driver_status_summary_provider.dart';
 import 'services/ride_booking_state.dart';
 import 'services/chat_notification_provider.dart';
+import 'services/firebase_bootstrap.dart';
 import 'services/notification_service.dart';
 import 'services/session_service.dart';
 import 'screens/app_settings_screen.dart';
@@ -25,15 +26,23 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+    ),
+  );
 
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-  if (Platform.isAndroid) {
-    try {
-      await Permission.notification.request();
-    } catch (_) {}
+  final firebaseReady = await ensureFirebase();
+  if (firebaseReady) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   }
+
+  try {
+    await Permission.notification.request();
+  } catch (_) {}
 
   runApp(const ViteWayApp(home: BootstrapScreen()));
 }
@@ -86,6 +95,19 @@ class ViteWayApp extends StatelessWidget {
                 theme: AppTheme.light(),
                 darkTheme: AppTheme.dark(),
                 themeMode: ThemeMode.light,
+                builder: (context, child) {
+                  final dark = Theme.of(context).brightness == Brightness.dark;
+                  return AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: SystemUiOverlayStyle(
+                      statusBarColor: Colors.transparent,
+                      statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+                      statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+                      systemNavigationBarColor: dark ? AppTheme.darkBg : Colors.white,
+                      systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+                    ),
+                    child: child ?? const SizedBox.shrink(),
+                  );
+                },
                 locale: appSettings.locale,
                 supportedLocales: const [
                   Locale('en'),

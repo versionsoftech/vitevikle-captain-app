@@ -55,7 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4EFF6),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -92,8 +92,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 offset: const Offset(0, -42),
                 child: Container(
                   width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF4EFF6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(34),
                       topRight: Radius.circular(110),
@@ -103,7 +103,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     padding: const EdgeInsets.fromLTRB(22, 52, 22, 20),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F1F1),
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Padding(
@@ -113,20 +113,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             Text(
                               onboardingData[currentPage]['title']!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF0D0F1C),
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 14),
                             Text(
                               onboardingData[currentPage]['desc']!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF64666E),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 height: 1.35,
                               ),
                             ),

@@ -1,15 +1,24 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:slide_to_act/slide_to_act.dart';
+import 'package:vite_captain/maps/open_mappls_navigation.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/models/intercity_request.dart';
 import 'package:vite_captain/screens/home/intercity_ride_map_screen.dart';
+import 'package:vite_captain/screens/home/intercity_bidding_screen.dart';
+import 'package:vite_captain/services/offer_inbox.dart';
+import 'package:vite_captain/widgets/upcoming_offer_card.dart';
+import 'package:vite_captain/services/app_config.dart';
 import 'package:vite_captain/screens/home/driver_give_review_screen.dart';
+import 'package:vite_captain/screens/home/driver_payment_screen.dart';
+import 'package:vite_captain/screens/activity/trip_detail_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vite_captain/screens/intercity/intercity_chat_screen.dart';
 import 'package:vite_captain/screens/chat/ride_chat_screen.dart';
@@ -252,7 +261,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
       builder: (context) => Material(
         color: Colors.transparent,
         child: Dialog(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           elevation: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -268,12 +277,12 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                   size: 72,
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   "Ride Expired",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -512,7 +521,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
             return Material(
               color: Colors.transparent,
               child: Dialog(
-                backgroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.surface,
                 elevation: 8,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -524,16 +533,16 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     children: [
                       const Icon(
                         Icons.check_circle,
-                        color: Colors.green,
+                        color: const Color(0xFF009640),
                         size: 72,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         "Parcel Delivered Successfully",
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -554,7 +563,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                             Navigator.of(context).pop();
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
+                            backgroundColor: const Color(0xFF009640),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -679,10 +688,10 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                           counterText: '',
                           hintText: '4 Digit OTP',
                           enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF369D01), width: 1.5),
+                            borderSide: BorderSide(color: Color(0xFF009640), width: 1.5),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFF369D01), width: 2),
+                            borderSide: BorderSide(color: Color(0xFF009640), width: 2),
                           ),
                           border: OutlineInputBorder(),
                         ),
@@ -696,7 +705,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                         child: ElevatedButton(
                           onPressed: verifying ? null : () => verifyNow(dialogContext, setDialogState),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF369D01),
+                            backgroundColor: const Color(0xFF009640),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
@@ -704,7 +713,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: ViteLoader(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Text('Verify', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                         ),
@@ -756,7 +765,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
         context: rootContext,
         barrierDismissible: false,
         builder: (_) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF00C853)),
+          child: ViteLoader(color: Color(0xFF009640)),
         ),
       );
 
@@ -827,7 +836,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           return Material(
             color: Colors.transparent,
             child: Dialog(
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               elevation: 8,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -837,24 +846,24 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.account_balance_wallet, color: Colors.green, size: 72),
+                    const Icon(Icons.account_balance_wallet, color: const Color(0xFF009640), size: 72),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       "Payment Received",
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       "₹${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2)} received successfully.",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -872,7 +881,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: const Color(0xFF009640),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -953,16 +962,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
   }
 
   Future<void> openGoogleMap(String address) async {
-    final a = address.trim();
-    if (a.isEmpty) return;
-
-    final Uri url = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(a)}',
-    );
-
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
+    await openMapplsPlace(address);
   }
 
   Future<void> handleNavigation(Map<String, dynamic> ride) async {
@@ -1066,22 +1066,22 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
               return Material(
                 color: Colors.transparent,
                 child: Dialog(
-                  backgroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
                   elevation: 8,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle, color: Color(0xFF369D01), size: 72),
+                        Icon(Icons.check_circle, color: Color(0xFF009640), size: 72),
                         SizedBox(height: 16),
                         Text(
                           'Parcel Ride Started',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Colors.black),
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Theme.of(context).colorScheme.onSurface),
                         ),
                         SizedBox(height: 8),
                         Text(
@@ -1167,7 +1167,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.check_circle, color: Color(0xFF369D01), size: 72),
+                          Icon(Icons.check_circle, color: Color(0xFF009640), size: 72),
                           SizedBox(height: 12),
                           Text(
                             'Parcel Ride Started 🚀',
@@ -1278,7 +1278,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                         child: ElevatedButton(
                           onPressed: verifying ? null : () => verifyNow(dialogContext, setDialogState),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF369D01),
+                            backgroundColor: const Color(0xFF009640),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
@@ -1286,7 +1286,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: ViteLoader(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Text('Verify', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                         ),
@@ -1443,7 +1443,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00C853)),
+        child: ViteLoader(color: Color(0xFF009640)),
       ),
     );
 
@@ -1482,6 +1482,31 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
 
       print('DEBUG: Calling _showCompleteSuccess');
       _showCompleteSuccess();
+      if (!mounted) return;
+      final fare = ride['accepted_fare'] ?? ride['acceptedFare'] ?? ride['final_price'] ?? ride['total_price'] ?? ride['price'] ?? ride['amount'];
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DriverPaymentScreen(
+            ride: {
+              ...ride,
+              'ride_type': 'intercity',
+              'rideType': 'intercity',
+              '_id': rideId,
+              'id': rideId,
+              'fare': fare,
+              'amount': fare,
+              'finalFare': fare,
+              'pickup_address': ride['pickup_location'] ?? ride['pickup_address'] ?? ride['pickup'],
+              'drop_address': ride['drop_location'] ?? ride['drop_address'] ?? ride['drop'],
+              'distance': ride['total_km'] ?? ride['km'] ?? ride['distance'],
+              'total_km': ride['total_km'] ?? ride['km'],
+              'user_name': ride['user_name'] ?? ride['rider_name'] ?? ride['customerName'] ?? ride['name'],
+              'user_image': ride['user_image'] ?? ride['rider_image'] ?? ride['customerImage'],
+            },
+          ),
+        ),
+      );
     } catch (_) {
       print('DEBUG: Exception in _completeRide, popping loader');
       if (!mounted) return;
@@ -1518,7 +1543,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
         context: context,
         barrierDismissible: false,
         builder: (_) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF00C853)),
+          child: ViteLoader(color: Color(0xFF009640)),
         ),
       );
 
@@ -1554,18 +1579,18 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF00C853),
+                      color: Color(0xFF009640),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.check, color: Colors.white, size: 30),
                   ),
                   const SizedBox(height: 15),
-                  const Text(
+                  Text(
                     'Payment Received',
                     style: TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1574,7 +1599,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF00C853),
+                      color: Color(0xFF009640),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1590,7 +1615,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00C853),
+                        backgroundColor: const Color(0xFF009640),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1650,6 +1675,24 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
     }
   }
 
+  void _openFinishedDetail(Map<String, dynamic> trip) {
+    final status = _text(trip['status']).toLowerCase();
+    final finished = status == 'completed' ||
+        status == 'delivered' ||
+        status == 'expired' ||
+        status == 'rejected' ||
+        status.contains('cancel');
+    if (!finished) return;
+    final type = _text(trip['ride_type'] ?? trip['rideType']).toLowerCase();
+    final kind = type == 'parcel' ? 'parcel' : (type == 'intercity' ? 'intercity' : 'ride');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TripDetailScreen(trip: Map<String, dynamic>.from(trip), kind: kind),
+      ),
+    );
+  }
+
   void _openReviewScreen(Map<String, dynamic> ride, double paidAmount, String riderName, String userImage) {
     final userId = _text(
       ride['user_id'] ??
@@ -1684,11 +1727,12 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
     final dt = (d ?? DateTime.fromMillisecondsSinceEpoch(0)).toLocal();
     if (d == null) return raw;
 
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     String two(int n) => n.toString().padLeft(2, '0');
     final hour = dt.hour;
     final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
     final ampm = hour >= 12 ? 'PM' : 'AM';
-    return '${two(dt.day)}-${two(dt.month)}-${dt.year} ${two(h12)}:${two(dt.minute)} $ampm';
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $h12:${two(dt.minute)} $ampm';
   }
 
   @override
@@ -1810,6 +1854,173 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
     return parseResponse(resp);
   }
 
+  String _offerId(Map<String, dynamic> ride) => _text(ride['_id'] ?? ride['id'] ?? ride['ride_id']);
+
+  bool _driverHasBid(Map<String, dynamic> ride, String driverId) {
+    final bids = ride['bids'];
+    if (driverId.isEmpty || bids is! List) return false;
+    for (final bid in bids) {
+      if (bid is Map && _text(bid['driverId'] ?? bid['driver_id']) == driverId) return true;
+    }
+    return false;
+  }
+
+  String _offerAddress(dynamic node) {
+    if (node is Map) return _text(node['address'] ?? node['name']);
+    return _text(node);
+  }
+
+  double? _numOf(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(_text(value));
+  }
+
+  double? _axis(dynamic node, List<String> keys) {
+    if (node is! Map) return null;
+    for (final key in keys) {
+      final n = _numOf(node[key]);
+      if (n != null) return n;
+    }
+    return null;
+  }
+
+  double? _rideKm(Map<String, dynamic> ride) {
+    for (final raw in [ride['distance'], ride['distanceKm'], ride['distance_km'], ride['totalDistance'], ride['total_distance']]) {
+      final n = _numOf(raw);
+      if (n != null && n > 0.05) return n;
+    }
+    final lat1 = _axis(ride['pickup'], const ['lat', 'latitude']);
+    final lng1 = _axis(ride['pickup'], const ['lng', 'lon', 'longitude']);
+    final lat2 = _axis(ride['drop'], const ['lat', 'latitude']);
+    final lng2 = _axis(ride['drop'], const ['lng', 'lon', 'longitude']);
+    if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) * math.sin(dLng / 2) * math.sin(dLng / 2);
+    final km = 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    if (km <= 0.05) return null;
+    return double.parse(km.toStringAsFixed(1));
+  }
+
+  String _minsLabel(num mins) {
+    final total = mins.round();
+    if (total <= 0) return '0 min';
+    if (total < 60) return '$total min';
+    final hours = total ~/ 60;
+    final left = total % 60;
+    if (left == 0) return '$hours hr';
+    return '$hours hr $left min';
+  }
+
+  String _rideMinutesLabel(Map<String, dynamic> ride, double? km) {
+    for (final raw in [ride['duration'], ride['time'], ride['durationMins'], ride['duration_mins'], ride['eta']]) {
+      final n = _numOf(raw);
+      if (n != null && n > 0) return _minsLabel(n);
+    }
+    if (km != null && km > 0) return _minsLabel((km / 25 * 60).clamp(1, 9999));
+    return '0 min';
+  }
+
+  String _photoUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) return value;
+    if (value.startsWith('/')) return 'https://adm.vitevikle.com$value';
+    return 'https://adm.vitevikle.com/$value';
+  }
+
+  String _kmLabel(dynamic raw) {
+    final text = _text(raw);
+    if (text.isEmpty) return '--';
+    final lower = text.toLowerCase();
+    if (lower.contains('km')) return text;
+    final n = double.tryParse(text);
+    if (n == null) return text;
+    return '${n.toStringAsFixed(n < 10 ? 1 : 0)} Km';
+  }
+
+  Widget _incomingIntercityOfferCard(IntercityRequestModel ride) {
+    final fare = ride.bidPrice > 0 ? ride.bidPrice : ride.price;
+    return UpcomingOfferCard(
+      vehicleLabel: ride.vehicleType.trim().isEmpty ? 'Intercity' : _vehicleLabel(ride.vehicleType),
+      vehicleIcon: _vehicleIcon(ride.vehicleType),
+      fare: fare,
+      pickup: ride.pickup,
+      drop: ride.drop,
+      pickupKm: '--',
+      dropKm: ride.km > 0 ? _kmLabel(ride.km) : '--',
+      onIgnore: () async {
+        OfferInbox.ignore(ride.id);
+        final token = (await const SessionService().getToken() ?? '').trim();
+        if (token.isEmpty) return;
+        await const ApiService().rejectIntercityRequest(token: token, requestId: ride.id, reason: 'Ignored');
+      },
+      onAccept: () async {
+        final ok = await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => IntercityBidBottomSheet(ride: ride),
+        );
+        if (ok == true) OfferInbox.ignore(ride.id);
+      },
+    );
+  }
+
+  Widget _incomingCityOfferCard(Map<String, dynamic> ride) {
+    final id = _offerId(ride);
+    final fareRaw = ride['fare'] ?? ride['amount'] ?? ride['price'];
+    final fare = fareRaw is num ? fareRaw.toDouble() : (double.tryParse('${fareRaw ?? ''}') ?? 0);
+    final vehicle = _text(ride['vehicle_type'] ?? ride['vehicleType']);
+    return UpcomingOfferCard(
+      vehicleLabel: _vehicleLabel(vehicle),
+      vehicleIcon: _vehicleIcon(vehicle),
+      fare: fare,
+      pickup: _offerAddress(ride['pickup'] ?? ride['pickup_address']),
+      drop: _offerAddress(ride['drop'] ?? ride['drop_address']),
+      pickupKm: _kmLabel(ride['pickup_distance'] ?? ride['pickupDistance']),
+      dropKm: _kmLabel(ride['distance'] ?? ride['distanceKm'] ?? ride['totalDistance']),
+      onIgnore: () async {
+        OfferInbox.ignore(id);
+      },
+      onAccept: () async {
+        final driverId = _driverId.trim().isNotEmpty ? _driverId.trim() : ((await const SessionService().getDriverId()) ?? '').trim();
+        if (driverId.isEmpty || id.isEmpty) return;
+        final extra = AppConfig.intRideSetting('city_rides_while_ongoing', 0);
+        final active = await const ApiService().getDriverActiveRide(driverId: driverId);
+        final current = active['ride'];
+        if (current is Map) {
+          final status = _text(current['status']).toLowerCase();
+          final type = _text(current['rideType'] ?? current['ride_type']).toLowerCase();
+          const live = {'accepted', 'assigned', 'arrived', 'started', 'ongoing', 'in_progress', 'waiting_user_confirmation'};
+          if (type != 'intercity' && type != 'parcel' && live.contains(status) && extra <= 0) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Finish this city ride before accepting another.')),
+            );
+            return;
+          }
+        }
+        final res = await const ApiService().placeRideBid(
+          rideRequestId: id,
+          driverId: driverId,
+          price: fare <= 0 ? 1 : fare.round(),
+        );
+        if (!mounted) return;
+        if (res['success'] == true) {
+          OfferInbox.ignore(id);
+          refreshRideList();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(extra > 0 ? 'Ride saved. It starts after this trip ends.' : 'Ride accepted')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_text(res['message']).isEmpty ? 'Could not accept' : _text(res['message']))));
+        }
+      },
+    );
+  }
+
   String _text(dynamic v) => (v ?? '').toString().trim();
 
   IconData _vehicleIcon(String raw) {
@@ -1848,13 +2059,13 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
       case 'upcoming':
         return const Color(0xFF2563EB);
       case 'accepted':
-        return const Color(0xFF16A34A);
+        return const Color(0xFF009640);
       case 'arrived':
         return const Color(0xFFD97706);
       case 'completed':
         return const Color(0xFF0F172A);
       default:
-        return const Color(0xFF16A34A);
+        return const Color(0xFF009640);
     }
   }
 
@@ -1868,7 +2079,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           ]),
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: ViteLoader());
             }
 
             final combined = snapshot.data;
@@ -1902,7 +2113,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
             }
 
             return ListView.builder(
-              physics: const BouncingScrollPhysics(),
+              physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.all(12),
               itemCount: all.length,
               itemBuilder: (context, index) {
@@ -1930,7 +2141,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           ]),
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: ViteLoader());
             }
 
             final combined = snapshot.data;
@@ -1968,7 +2179,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
             }
 
             return ListView.builder(
-              physics: const BouncingScrollPhysics(),
+              physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.all(12),
               itemCount: all.length,
               itemBuilder: (context, index) {
@@ -1992,7 +2203,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
         future: _ridesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: ViteLoader());
           }
 
           final ridesAll = snapshot.data ?? <Map<String, dynamic>>[];
@@ -2012,7 +2223,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           }
 
           return ListView.builder(
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.all(12),
             itemCount: rides.length,
             itemBuilder: (context, index) {
@@ -2035,7 +2246,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
       ]),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: ViteLoader());
         }
 
         final combined = snapshot.data;
@@ -2060,6 +2271,10 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
               return false;
             }
           }
+          if (s == 'bidding') {
+            return _text(ride['driverId'] ?? ride['driver_id'] ?? ride['acceptedDriverId'] ?? ride['selectedDriverId']) == currentDriverId ||
+                _driverHasBid(ride, currentDriverId);
+          }
           return s == 'pending' || s == 'assigned' || s == 'accepted' || s == 'arrived' || s == 'ongoing' || s == 'started';
         }).toList();
 
@@ -2080,29 +2295,49 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           ...rideItems,
         ];
 
-        if (all.isEmpty) {
-          return const Center(
-            child: Text(
-              'No upcoming rides',
-              style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black54),
-            ),
-          );
-        }
+        return ListenableBuilder(
+          listenable: Listenable.merge([OfferInbox.city, OfferInbox.intercity]),
+          builder: (context, _) {
+            final taken = <String>{
+              for (final ride in all) _offerId(ride),
+              for (final ride in all) _text(ride['_id']),
+              for (final ride in all) _text(ride['id']),
+              for (final ride in all) _text(ride['ride_id']),
+            }..removeWhere((id) => id.isEmpty);
+            final cityOffers = OfferInbox.city.value.where((ride) => !taken.contains(_offerId(ride))).toList();
+            final intercityOffers = OfferInbox.intercity.value.where((ride) => !taken.contains(ride.id.trim())).toList();
+            if (all.isEmpty && cityOffers.isEmpty && intercityOffers.isEmpty) {
+              return const Center(
+                child: Text(
+                  'No upcoming rides',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black54),
+                ),
+              );
+            }
 
-        return ListView.builder(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(12),
-          itemCount: all.length,
-          itemBuilder: (context, index) {
-            final item = all[index];
-            final rideType = _text(item['rideType'] ?? item['ride_type']).toLowerCase();
-            if (rideType == 'parcel') {
-              return _parcelUpcomingCard(item, index);
-            }
-            if (rideType == 'intercity') {
-              return _rideCard(item, status, index);
-            }
-            return _normalRideCard(item, index);
+            return ListView.builder(
+              physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.all(12),
+              itemCount: intercityOffers.length + cityOffers.length + all.length,
+              itemBuilder: (context, index) {
+                if (index < intercityOffers.length) {
+                  return _incomingIntercityOfferCard(intercityOffers[index]);
+                }
+                final cityIndex = index - intercityOffers.length;
+                if (cityIndex < cityOffers.length) {
+                  return _incomingCityOfferCard(cityOffers[cityIndex]);
+                }
+                final item = all[index - intercityOffers.length - cityOffers.length];
+                final rideType = _text(item['rideType'] ?? item['ride_type']).toLowerCase();
+                if (rideType == 'parcel') {
+                  return _parcelUpcomingCard(item, index);
+                }
+                if (rideType == 'intercity') {
+                  return _rideCard(item, status, index);
+                }
+                return _normalRideCard(item, index);
+              },
+            );
           },
         );
       },
@@ -2199,23 +2434,25 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
       },
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: (!isCancelled && !isExpired && isStarted)
-            ? () async {
-                final ok = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(builder: (_) => ParcelDropMapScreen(parcel: parcel)),
-                );
-                if (ok == true) {
-                  if (!mounted) return;
-                  _tabController.animateTo(1);
-                }
-              }
-            : null,
+        onTap: (isCompleted || isCancelled || isExpired)
+            ? () => _openFinishedDetail(parcel)
+            : (!isCancelled && !isExpired && isStarted)
+                ? () async {
+                    final ok = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(builder: (_) => ParcelDropMapScreen(parcel: parcel)),
+                    );
+                    if (ok == true) {
+                      if (!mounted) return;
+                      _tabController.animateTo(1);
+                    }
+                  }
+                : null,
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: const [
               BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 4)),
@@ -2230,7 +2467,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                 children: [
                   Row(
                     children: [
-                      Icon(parcelIcon, color: const Color(0xFF369D01)),
+                      Icon(parcelIcon, color: const Color(0xFF009640)),
                       const SizedBox(width: 8),
                       Text(
                         isStarted && description.isNotEmpty ? description : 'Parcel',
@@ -2263,7 +2500,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                             ? const Color(0xFF0F172A)
                             : isCompleted
                             ? const Color(0xFF0F172A)
-                            : (isStarted ? const Color(0xFF2563EB) : const Color(0xFF16A34A)),
+                            : (isStarted ? const Color(0xFF2563EB) : const Color(0xFF009640)),
                       ),
                     ),
                   ),
@@ -2272,7 +2509,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.location_on, size: 16, color: Colors.green),
+                  const Icon(Icons.location_on, size: 16, color: const Color(0xFF009640)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -2307,7 +2544,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                 children: [
                   Text(
                     '₹${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)}',
-                    style: const TextStyle(color: Color(0xFF369D01), fontWeight: FontWeight.w900, fontSize: 16),
+                    style: const TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900, fontSize: 16),
                   ),
                   const SizedBox.shrink(),
                 ],
@@ -2322,7 +2559,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                       child: ElevatedButton(
                         onPressed: userPhone.isEmpty ? null : () => _callNumber(userPhone),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF369D01),
+                          backgroundColor: const Color(0xFF009640),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -2357,7 +2594,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF369D01),
+                          backgroundColor: const Color(0xFF009640),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -2388,7 +2625,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                           child: ElevatedButton(
                             onPressed: () => _showParcelPickupOtpDialog(parcel),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF369D01),
+                              backgroundColor: const Color(0xFF009640),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
@@ -2426,7 +2663,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     child: Text(
                       'Reviewed ✔',
                       style: TextStyle(
-                        color: Color(0xFF369D01),
+                        color: Color(0xFF009640),
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -2477,14 +2714,14 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFF369D01)),
+                        border: Border.all(color: const Color(0xFF009640)),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
                       child: const Text(
                         'Review',
                         style: TextStyle(
-                          color: Color(0xFF369D01),
+                          color: Color(0xFF009640),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -2499,7 +2736,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     height: 56,
                     child: SlideAction(
                       sliderButtonIcon: const Icon(Icons.arrow_forward, color: Colors.white),
-                      outerColor: const Color(0xFF369D01),
+                      outerColor: const Color(0xFF009640),
                       innerColor: const Color(0xFF2B7A01),
                       text: 'Swipe to Deliver',
                       textStyle: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
@@ -2523,16 +2760,16 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF369D01).withOpacity(0.06),
+                            color: const Color(0xFF009640).withOpacity(0.06),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF369D01).withOpacity(0.25)),
+                            border: Border.all(color: const Color(0xFF009640).withOpacity(0.25)),
                           ),
                           child: Row(
                             children: [
                               const SizedBox(
                                 height: 18,
                                 width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2.4, color: Color(0xFF369D01)),
+                                child: ViteLoader(strokeWidth: 2.4, color: Color(0xFF009640)),
                               ),
                               const SizedBox(width: 12),
                               const Expanded(
@@ -2556,8 +2793,8 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                                 );
                               },
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF369D01),
-                                side: const BorderSide(color: Color(0xFF369D01)),
+                                foregroundColor: const Color(0xFF009640),
+                                side: const BorderSide(color: Color(0xFF009640)),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                               ),
@@ -2570,7 +2807,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                             child: ElevatedButton.icon(
                               onPressed: processing ? null : () => _confirmCashAndComplete(parcel),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF369D01),
+                                backgroundColor: const Color(0xFF009640),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -2599,12 +2836,13 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           ride['customer_name'] ??
           (ride['user'] is Map ? (ride['user'] as Map)['name'] : null),
     );
-    final userImage = _text(
+    final userImage = _photoUrl(_text(
       ride['userImage'] ??
           ride['user_image'] ??
+          ride['customerImage'] ??
           ride['image'] ??
-          (ride['user'] is Map ? (ride['user'] as Map)['profileImage'] : null),
-    );
+          (ride['user'] is Map ? (ride['user'] as Map)['profileImage'] ?? (ride['user'] as Map)['user_image'] ?? (ride['user'] as Map)['image'] : null),
+    ));
     final date = _fmtDate(ride['createdAt'] ?? ride['created_at'] ?? ride['created_at'] ?? ride['createdAt']);
 
     final pickupRaw = ride['pickup'];
@@ -2613,26 +2851,12 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
     final drop = _text((dropRaw is Map ? dropRaw['address'] : null) ?? dropRaw);
 
     final vehicleRaw = _text(ride['vehicle_type'] ?? ride['vehicleType']);
-    final distanceRaw = ride['distance'];
-    final durationRaw = ride['duration'];
-
-    String distanceText;
-    if (distanceRaw is num) {
-      distanceText = '${distanceRaw.toString()} km';
-    } else {
-      final s = _text(distanceRaw);
-      distanceText = s.isEmpty ? '0 km' : s;
-    }
-
-    String durationText;
-    if (durationRaw is num) {
-      durationText = '${durationRaw.toString()} mins';
-    } else {
-      final s = _text(durationRaw);
-      durationText = s.isEmpty ? '0 mins' : s;
-    }
+    final kmValue = _rideKm(ride);
+    final distanceText = kmValue == null ? '0 km' : '${kmValue < 10 ? kmValue.toStringAsFixed(1) : kmValue.toStringAsFixed(0)} km';
+    final durationText = _rideMinutesLabel(ride, kmValue);
 
     final amount = _asDouble(ride['fare'] ?? ride['finalFare'] ?? ride['final_fare'] ?? ride['finalFare']);
+    final queued = _text(ride['status']).toLowerCase() == 'bidding';
 
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
@@ -2647,12 +2871,18 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
           ),
         );
       },
-      child: Container(
+      child: GestureDetector(
+        onTap: () => _openFinishedDetail(ride),
+        child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE8EEF2)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x12009640), blurRadius: 18, offset: Offset(0, 10)),
+            BoxShadow(color: Color(0x10000000), blurRadius: 4, offset: Offset(0, 1)),
+          ],
         ),
         child: Column(
           children: [
@@ -2669,22 +2899,41 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                         ? null
                         : Text(
                             (name.isEmpty ? 'C' : name.substring(0, 1)).toUpperCase(),
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black87),
+                            style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                           ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      name.isEmpty ? 'Customer' : name,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name.isEmpty ? 'Customer' : name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        if (queued)
+                          const Text('Queued · starts after this trip', style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w700, fontSize: 11)),
+                      ],
                     ),
                   ),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_month, size: 18, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Text(date, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.grey)),
-                    ],
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_month, size: 16, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            date,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.grey, fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -2700,7 +2949,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                       Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(color: Color(0xFF00A651), shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: Color(0xFF009640), shape: BoxShape.circle),
                       ),
                       Container(width: 2, height: 28, color: Colors.grey.shade300),
                       const Icon(Icons.location_on, size: 18, color: Colors.red),
@@ -2735,25 +2984,25 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
               child: Row(
                 children: [
-                  Icon(_vehicleIcon(vehicleRaw), size: 18, color: const Color(0xFF00A651)),
+                  Icon(_vehicleIcon(vehicleRaw), size: 18, color: const Color(0xFF009640)),
                   const SizedBox(width: 6),
-                  Text(_vehicleLabel(vehicleRaw), style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 14),
-                  const Icon(Icons.route, size: 18, color: Colors.black87),
-                  const SizedBox(width: 6),
-                  Text(distanceText, style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 14),
-                  const Icon(Icons.timer, size: 18, color: Colors.black87),
-                  const SizedBox(width: 6),
-                  Text(durationText, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Flexible(child: Text(_vehicleLabel(vehicleRaw), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
+                  const SizedBox(width: 10),
+                  Icon(Icons.route, size: 18, color: Theme.of(context).colorScheme.onSurface),
+                  const SizedBox(width: 4),
+                  Flexible(child: Text(distanceText, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
+                  const SizedBox(width: 10),
+                  Icon(Icons.timer, size: 18, color: Theme.of(context).colorScheme.onSurface),
+                  const SizedBox(width: 4),
+                  Flexible(child: Text(durationText, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
                 ],
               ),
             ),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF0FFF7),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
@@ -2762,16 +3011,17 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.account_balance_wallet, size: 18, color: Color(0xFF00A651)),
+                  const Icon(Icons.account_balance_wallet, size: 18, color: Color(0xFF009640)),
                   const SizedBox(width: 8),
                   Text(
                     '₹${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2)}',
-                    style: const TextStyle(color: Color(0xFF00A651), fontWeight: FontWeight.w900, fontSize: 16),
+                    style: const TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900, fontSize: 16),
                   ),
                 ],
               ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -2869,23 +3119,32 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
         );
       },
       child: GestureDetector(
-        onTap: isExpired
-            ? null
-            : (intercity == null
-                ? null
-                : () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => IntercityRideMapScreen(ride: intercity!),
-                      ),
-                    );
-                  }),
+        onTap: () {
+          final finished = isExpired ||
+              status == 'completed' ||
+              status == 'canceled' ||
+              rideStatus == 'completed' ||
+              rideStatus == 'delivered' ||
+              rideStatus == 'expired' ||
+              rideStatus == 'rejected' ||
+              rideStatus.contains('cancel');
+          if (finished) {
+            _openFinishedDetail(ride);
+            return;
+          }
+          if (intercity == null) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => IntercityRideMapScreen(ride: intercity!),
+            ),
+          );
+        },
         child: Container(
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -2895,7 +3154,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                 spreadRadius: 0,
               ),
             ],
-            border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
+            border: Border.all(color: Theme.of(context).colorScheme.surface, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2927,7 +3186,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                             const SizedBox(width: 10),
                             Text(
                               '₹${shownPrice.toStringAsFixed(0)}',
-                              style: const TextStyle(color: Color(0xFF369D01), fontWeight: FontWeight.w900, fontSize: 15),
+                              style: const TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900, fontSize: 15),
                             ),
                           ],
                         ),
@@ -2998,10 +3257,10 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     children: [
                       Text(
                         pickupDate,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -3010,7 +3269,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF369D01),
+                          color: Color(0xFF009640),
                         ),
                       ),
                     ],
@@ -3020,10 +3279,10 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     children: [
                       Text(
                         pickupDate,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -3032,7 +3291,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF369D01),
+                          color: Color(0xFF009640),
                         ),
                       ),
                     ],
@@ -3042,10 +3301,10 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                     children: [
                       Text(
                         createdAtText.split(' ')[0].replaceAll('-', ' '),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -3054,7 +3313,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF369D01),
+                          color: Color(0xFF009640),
                         ),
                       ),
                     ],
@@ -3105,7 +3364,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                             child: ElevatedButton(
                               onPressed: () => _confirmCashPayment(ride),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C853),
+                                backgroundColor: const Color(0xFF009640),
                                 minimumSize: const Size(double.infinity, 45),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
@@ -3121,7 +3380,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                                   child: Text(
                                     'Reviewed ✔',
                                     style: TextStyle(
-                                      color: Color(0xFF00C853),
+                                      color: Color(0xFF009640),
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
@@ -3157,9 +3416,9 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                                   },
                                   style: OutlinedButton.styleFrom(
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    side: const BorderSide(color: Color(0xFF00C853)),
+                                    side: const BorderSide(color: Color(0xFF009640)),
                                   ),
-                                  child: const Text('Review', style: TextStyle(color: Color(0xFF00C853), fontWeight: FontWeight.w900)),
+                                  child: const Text('Review', style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900)),
                                 ),
                         ),
                       ],
@@ -3189,7 +3448,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                                 );
                               },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF369D01),
+                          backgroundColor: const Color(0xFF009640),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -3216,7 +3475,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                           _callNumber(phone);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF369D01),
+                          backgroundColor: const Color(0xFF009640),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -3256,7 +3515,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF369D01),
+                          backgroundColor: const Color(0xFF009640),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -3286,30 +3545,34 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      backgroundColor: const Color(0xffF5F5F5),
-      body: SafeArea(
-        child: Column(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text(
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(16, top + 16, 16, 22),
+              decoration: const BoxDecoration(
+                color: Color(0xFF009640),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+              ),
+              child: const Text(
                 'Activity',
                 style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
                 ),
               ),
             ),
-            Divider(height: 1, color: Colors.grey),
             const SizedBox(height: 10),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 12),
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: const [
                   BoxShadow(color: Color(0x0F000000), blurRadius: 10, offset: Offset(0, 6)),
@@ -3318,7 +3581,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  color: const Color(0xFF369D01),
+                  color: const Color(0xFF009640),
                   borderRadius: BorderRadius.circular(30),
                 ),
                 dividerColor: Colors.transparent,
@@ -3339,7 +3602,7 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
             Expanded(
               child: TabBarView(
                 controller: _tabController,
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 children: [
                   buildRideList('upcoming'),
                   buildRideList('completed'),
@@ -3349,7 +3612,6 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
             ),
           ],
         ),
-      ),
     );
   }
 }
@@ -3403,17 +3665,17 @@ class _OtpVerifyDialogState extends State<OtpVerifyDialog> {
             padding: const EdgeInsets.all(20),
             margin: const EdgeInsets.symmetric(horizontal: 30),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Column(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.check_circle, color: Color(0xFF00C853), size: 60),
+                Icon(Icons.check_circle, color: Color(0xFF009640), size: 60),
                 SizedBox(height: 10),
                 Text(
                   "Customer Picked Up",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                 ),
               ],
             ),
@@ -3424,7 +3686,7 @@ class _OtpVerifyDialogState extends State<OtpVerifyDialog> {
   }
 
   void verifyOtp(String otp) async {
-    const green = Color(0xFF00C853);
+    const green = Color(0xFF009640);
 
     print("STEP 1 OTP SUBMIT: Starting OTP verification");
 
@@ -3432,7 +3694,7 @@ class _OtpVerifyDialogState extends State<OtpVerifyDialog> {
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(
-        child: CircularProgressIndicator(color: green),
+        child: ViteLoader(color: green),
       ),
     );
 
@@ -3500,7 +3762,7 @@ class _OtpVerifyDialogState extends State<OtpVerifyDialog> {
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF00C853);
+    const green = Color(0xFF009640);
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -3509,7 +3771,7 @@ class _OtpVerifyDialogState extends State<OtpVerifyDialog> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(

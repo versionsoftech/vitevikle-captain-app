@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class WebViewScreen extends StatefulWidget {
@@ -59,7 +60,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
           if (_loading)
             const Positioned.fill(
               child: Center(
-                child: CircularProgressIndicator(),
+                child: ViteLoader(),
               ),
             ),
         ],

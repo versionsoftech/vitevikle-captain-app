@@ -11,7 +11,7 @@ class AppSettingsProvider extends ChangeNotifier {
 
   bool get loaded => _loaded;
   bool get isDarkMode => _isDarkMode;
-  ThemeMode get themeMode => ThemeMode.light;
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
   Locale get locale => _locale;
 
   AppSettingsProvider() {
@@ -21,7 +21,7 @@ class AppSettingsProvider extends ChangeNotifier {
   Future<void> _hydrate() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _isDarkMode = false; // force light
+      _isDarkMode = prefs.getBool(_keyDarkMode) ?? false;
       final code = (prefs.getString(_keyLanguage) ?? 'en').trim();
       _locale = Locale(_normalizeLanguageCode(code));
     } catch (_) {
@@ -59,11 +59,11 @@ class AppSettingsProvider extends ChangeNotifier {
   }
 
   Future<void> setDarkMode(bool value) async {
-    _isDarkMode = false; // ignore and force light
+    _isDarkMode = value;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyDarkMode, false);
+      await prefs.setBool(_keyDarkMode, value);
     } catch (_) {}
   }
 

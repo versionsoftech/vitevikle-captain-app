@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:intl/intl.dart';
 import 'package:vite_captain/screens/wallet/withdraw_request_details_screen.dart';
 import 'package:vite_captain/services/api_service.dart';
@@ -88,7 +89,7 @@ class _DriverWithdrawHistoryScreenState extends State<DriverWithdrawHistoryScree
   Color _statusColor(String s) {
     switch (s.trim().toLowerCase()) {
       case 'approved':
-        return const Color(0xFF16A34A);
+        return const Color(0xFF009640);
       case 'rejected':
         return const Color(0xFFDC2626);
       case 'processing':
@@ -232,7 +233,7 @@ class _DriverWithdrawHistoryScreenState extends State<DriverWithdrawHistoryScree
                         height: 56,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
+                          color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Row(
@@ -266,7 +267,7 @@ class _DriverWithdrawHistoryScreenState extends State<DriverWithdrawHistoryScree
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -277,7 +278,7 @@ class _DriverWithdrawHistoryScreenState extends State<DriverWithdrawHistoryScree
                     ],
                   ),
                   child: _loading
-                      ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const Center(child: ViteLoader(strokeWidth: 2))
                       : list.isEmpty
                           ? const Center(
                               child: Text(

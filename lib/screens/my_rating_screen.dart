@@ -25,7 +25,7 @@ class MyRatingScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoBlock({
+  Widget _infoBlock(BuildContext context, {
     required IconData icon,
     required String title,
     required String description,
@@ -38,7 +38,7 @@ class MyRatingScreen extends StatelessWidget {
           CircleAvatar(
             radius: 28,
             backgroundColor: Colors.grey.shade200,
-            child: Icon(icon, color: Colors.black87),
+            child: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -109,12 +109,12 @@ class MyRatingScreen extends StatelessWidget {
               children: [
                 Icon(Icons.star, color: Colors.orange.shade400, size: 30),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   '5.0',
                   style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w800,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -128,14 +128,14 @@ class MyRatingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('My Rating'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 1,
       ),
@@ -159,25 +159,25 @@ class MyRatingScreen extends StatelessWidget {
                 'To foster mutual respect Rapido captains and customers can rate each other on a scale of 1-5. Read on to understand how you can be a 5 star customer',
               ),
               const SizedBox(height: 20),
-              _infoBlock(
+              _infoBlock(context, 
                 icon: Icons.person_outline,
                 title: 'Know your Captain',
                 description:
                     "Knowing a little more about the things that affect a captain's happiness can help you be a 5-star rider.",
               ),
-              _infoBlock(
+              _infoBlock(context, 
                 icon: Icons.access_time,
                 title: 'Timely',
                 description:
                     'Check your pick up address and make sure that it is accurate. Reach the pickup spot on time. This helps the captain get you to your destination on time.',
               ),
-              _infoBlock(
+              _infoBlock(context, 
                 icon: Icons.verified_user_outlined,
                 title: 'Safety',
                 description:
                     'Sit back and relax. Every captain and customer should follow traffic rules and ensure a safe journey at all times.',
               ),
-              _infoBlock(
+              _infoBlock(context, 
                 icon: Icons.handshake_outlined,
                 title: 'Courtesy',
                 description:

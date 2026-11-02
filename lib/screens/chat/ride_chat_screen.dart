@@ -1,4 +1,5 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/chat_notification_provider.dart';
 import 'package:vite_captain/services/dio_client.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class RideChatScreen extends StatefulWidget {
   final String rideId;
@@ -29,7 +31,7 @@ class RideChatScreen extends StatefulWidget {
 }
 
 class _RideChatScreenState extends State<RideChatScreen> {
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scroll = ScrollController();
@@ -166,17 +168,13 @@ class _RideChatScreenState extends State<RideChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: _green,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: curvedGreenAppBar(title: widget.title.isEmpty ? 'Chat' : widget.title),
       body: Column(
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: _green))
+                ? const Center(child: ViteLoader(color: _green))
                 : ListView.builder(
                     controller: _scroll,
                     padding: const EdgeInsets.all(12),
@@ -241,7 +239,7 @@ class _RideChatScreenState extends State<RideChatScreen> {
                           ? const SizedBox(
                               height: 18,
                               width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: ViteLoader(strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.send),
                     ),

@@ -1,11 +1,11 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/location_service.dart';
@@ -15,13 +15,11 @@ import 'package:vite_captain/screens/home/driver_payment_screen.dart';
 class DriverFinishRideMapScreen extends StatefulWidget {
   final String rideId;
   final Map<String, dynamic> ride;
-  final String googleApiKey;
 
   const DriverFinishRideMapScreen({
     super.key,
     required this.rideId,
     required this.ride,
-    required this.googleApiKey,
   });
 
   @override
@@ -32,9 +30,8 @@ class _DriverFinishRideMapScreenState extends State<DriverFinishRideMapScreen> {
   static const themeRed = Color(0xFFFF3B30);
 
   final LocationService _locationService = const LocationService();
-  final PolylinePoints _polylinePoints = PolylinePoints();
 
-  GoogleMapController? _map;
+  MapplsViewController? _map;
   StreamSubscription<Position>? _positionSub;
   Timer? _timer;
 
@@ -130,47 +127,10 @@ class _DriverFinishRideMapScreenState extends State<DriverFinishRideMapScreen> {
     }
   }
 
-  Uri _buildDirectionsUri({
-    required LatLng origin,
-    required LatLng destination,
-    required String apiKey,
-  }) {
-    return Uri.https(
-      'maps.googleapis.com',
-      '/maps/api/directions/json',
-      <String, String>{
-        'origin': '${origin.latitude},${origin.longitude}',
-        'destination': '${destination.latitude},${destination.longitude}',
-        'mode': 'driving',
-        'key': apiKey,
-      },
-    );
-  }
-
   Future<void> _loadRoute(LatLng origin, LatLng destination) async {
-    final apiKey = widget.googleApiKey.trim();
-    if (apiKey.isEmpty) return;
-
     try {
-      final res = await DioClient.dio.get(
-        _buildDirectionsUri(origin: origin, destination: destination, apiKey: apiKey).toString(),
-      );
-
-      dynamic raw = res.data;
-      if (raw is String) raw = jsonDecode(raw);
-      if (raw is! Map<String, dynamic>) return;
-
-      final routes = (raw['routes'] as List<dynamic>? ?? []);
-      if (routes.isEmpty) return;
-
-      final route0 = routes.first;
-      if (route0 is! Map) return;
-      final overview = (route0['overview_polyline'] as Map?) ?? {};
-      final encoded = (overview['points'] ?? '').toString();
-
-      final decoded = encoded.isNotEmpty
-          ? _polylinePoints.decodePolyline(encoded).map((p) => LatLng(p.latitude, p.longitude)).toList(growable: false)
-          : <LatLng>[origin, destination];
+      final route = await fetchMapplsRoute(origin, destination);
+      final decoded = route?.points ?? <LatLng>[origin, destination];
 
       if (!mounted) return;
       setState(() {
@@ -324,12 +284,12 @@ class _DriverFinishRideMapScreenState extends State<DriverFinishRideMapScreen> {
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           top: false,
           child: Stack(
             children: [
-              GoogleMap(
+              MapplsView(
                 initialCameraPosition: CameraPosition(
                   target: _driver ?? _drop ?? const LatLng(20.5937, 78.9629),
                   zoom: 16,
@@ -353,7 +313,7 @@ class _DriverFinishRideMapScreenState extends State<DriverFinishRideMapScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 5))],
                       ),
@@ -374,8 +334,8 @@ class _DriverFinishRideMapScreenState extends State<DriverFinishRideMapScreen> {
                   top: false,
                   child: Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                       boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 14, offset: Offset(0, -2))],
                     ),
@@ -384,8 +344,8 @@ class _DriverFinishRideMapScreenState extends State<DriverFinishRideMapScreen> {
                       children: [
                         Row(
                           children: [
-                            const CircleAvatar(
-                              backgroundColor: Color(0xFFF1F5F9),
+                            CircleAvatar(
+                              backgroundColor: Theme.of(context).colorScheme.surface,
                               child: Icon(Icons.location_on_outlined, color: themeRed),
                             ),
                             const SizedBox(width: 10),

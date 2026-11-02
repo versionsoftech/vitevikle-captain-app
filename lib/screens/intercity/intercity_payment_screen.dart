@@ -1,4 +1,5 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -24,7 +25,7 @@ class IntercityPaymentScreen extends StatefulWidget {
 }
 
 class _IntercityPaymentScreenState extends State<IntercityPaymentScreen> {
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
 
   bool _completing = false;
   Timer? _paymentStatusTimer;
@@ -169,7 +170,7 @@ final prefs = await SharedPreferences.getInstance();
     final rideId = _asTrimmed(widget.ride.id);
     if (rideId.isEmpty) return;
 
-    print('LOADER: Button CircularProgressIndicator opened');
+    print('LOADER: Button ViteLoader opened');
     setState(() => _completing = true);
     try {
       final token = (await const SessionService().getToken())?.trim() ?? '';
@@ -225,7 +226,7 @@ final prefs = await SharedPreferences.getInstance();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Payment Received ✅'),
-          backgroundColor: Colors.green,
+          backgroundColor: const Color(0xFF009640),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -237,7 +238,7 @@ final prefs = await SharedPreferences.getInstance();
         MaterialPageRoute(builder: (_) => const ActivityScreen()),
         (route) => false,
       );
-      print('LOADER: Button CircularProgressIndicator closed');
+      print('LOADER: Button ViteLoader closed');
       print('========== INTERCITY CASH PAYMENT END ==========');
     } catch (e) {
       print('EXCEPTION CAUGHT: $e');
@@ -266,9 +267,9 @@ final prefs = await SharedPreferences.getInstance();
     final fare = ride.price > 0 ? ride.price : ride.bidPrice;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
         title: const Text('Payment', style: TextStyle(fontWeight: FontWeight.w900)),
@@ -352,7 +353,7 @@ final prefs = await SharedPreferences.getInstance();
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: ViteLoader(strokeWidth: 2, color: Colors.white),
                           )
                         : const Text('Complete Ride', style: TextStyle(fontWeight: FontWeight.w900)),
                   ),
@@ -372,7 +373,7 @@ final prefs = await SharedPreferences.getInstance();
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: ViteLoader(strokeWidth: 2, color: Colors.white),
                           )
                         : const Text('Received', style: TextStyle(fontWeight: FontWeight.w900)),
                   ),
@@ -398,8 +399,8 @@ class IntercityPaidBottomSheet extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       child: Column(
@@ -414,14 +415,14 @@ class IntercityPaidBottomSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          const Icon(Icons.check_circle, color: Colors.green, size: 64),
+          const Icon(Icons.check_circle, color: const Color(0xFF009640), size: 64),
           const SizedBox(height: 16),
           const Text(
             'Payment Received!',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
-              color: Colors.green,
+              color: const Color(0xFF009640),
             ),
           ),
           const SizedBox(height: 8),
@@ -438,7 +439,7 @@ class IntercityPaidBottomSheet extends StatelessWidget {
             height: 50,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF369D01),
+                backgroundColor: const Color(0xFF009640),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),

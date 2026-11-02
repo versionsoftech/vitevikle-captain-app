@@ -1,6 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vite_captain/providers/app_settings_provider.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class AppSettingsScreen extends StatefulWidget {
   const AppSettingsScreen({super.key});
@@ -43,10 +44,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> with SingleTicker
       padding: const EdgeInsets.only(top: 18, bottom: 10),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w800,
-          color: Colors.black87,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -121,21 +122,11 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
     return Consumer<AppSettingsProvider>(
       builder: (context, settings, _) {
         return Scaffold(
-          backgroundColor: const Color(0xFFF5F5F5),
-          appBar: AppBar(
-            backgroundColor: primary,
-            foregroundColor: Colors.white,
-            title: const Text('App Settings'),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: curvedGreenAppBar(title: 'App Settings'),
           body: FadeTransition(
             opacity: _fade,
             child: SlideTransition(
@@ -158,8 +149,6 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> with SingleTicker
                       onTap: () => _openLanguageSheet(settings),
                     ),
                   ),
-
-                  // Dark Mode UI hidden as requested
 
                   _sectionTitle('Legal'),
                   _card(

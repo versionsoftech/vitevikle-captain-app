@@ -42,7 +42,7 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F3F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -66,7 +66,7 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
             ),
           ),
         ],
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
@@ -79,7 +79,7 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -97,12 +97,12 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                       Expanded(
                         child: Column(
                           children: [
-                            const _StaticRow(
+                            _StaticRow(
                               text: 'Your Current Location',
                               textStyle: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const Divider(
@@ -128,11 +128,11 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                                             ),
                                           ),
                                         ),
-                                        const Icon(Icons.drag_handle, color: Color(0xFF64748B)),
+                                        Icon(Icons.drag_handle, color: Theme.of(context).colorScheme.onSurfaceVariant),
                                         const SizedBox(width: 8),
                                         InkWell(
                                           onTap: () => _removeStop(index),
-                                          child: const Icon(Icons.close, color: Color(0xFF64748B)),
+                                          child: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant),
                                         ),
                                       ],
                                     ),
@@ -170,7 +170,7 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                           side: const BorderSide(color: Color(0xFFE5E7EB)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
@@ -178,11 +178,11 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                           minimumSize: const Size(0, 44),
                         ),
                         onPressed: () {},
-                        icon: const Icon(Icons.location_on_outlined, color: Colors.black),
-                        label: const Text(
+                        icon: Icon(Icons.location_on_outlined, color: Theme.of(context).colorScheme.onSurface),
+                        label: Text(
                           'Select on map',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -192,7 +192,7 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                           side: const BorderSide(color: Color(0xFFE5E7EB)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
@@ -200,11 +200,11 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                           minimumSize: const Size(0, 44),
                         ),
                         onPressed: _addStop,
-                        icon: const Icon(Icons.add, color: Colors.black),
-                        label: const Text(
+                        icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onSurface),
+                        label: Text(
                           'Add stops',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -234,23 +234,23 @@ class _AddStopsScreenState extends State<AddStopsScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'You can take 5 min halts/ stop',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
-                          color: Colors.black,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Please ensure small stops to avoid wait time fee',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -305,7 +305,7 @@ class _StopsIndicator extends StatelessWidget {
       width: 28,
       child: Column(
         children: [
-          _dot(color: const Color(0xFF16A34A), filled: false),
+          _dot(context, color: const Color(0xFF009640), filled: false),
           const SizedBox(height: 8),
           const _DottedLine(height: 16),
           const SizedBox(height: 8),
@@ -315,32 +315,32 @@ class _StopsIndicator extends StatelessWidget {
             ...List.generate(clampedStops, (i) {
               return Column(
                 children: [
-                  _diamondNumber(i + 1),
+                  _diamondNumber(context, i + 1),
                   const SizedBox(height: 8),
                   const _DottedLine(height: 16),
                   const SizedBox(height: 8),
                 ],
               );
             }),
-          _dot(color: const Color(0xFFEF4444), filled: false),
+          _dot(context, color: const Color(0xFFEF4444), filled: false),
         ],
       ),
     );
   }
 
-  Widget _dot({required Color color, required bool filled}) {
+  Widget _dot(BuildContext context, {required Color color, required bool filled}) {
     return Container(
       width: 14,
       height: 14,
       decoration: BoxDecoration(
-        color: filled ? color : Colors.white,
+        color: filled ? color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color, width: 3),
       ),
     );
   }
 
-  Widget _diamondNumber(int number) {
+  Widget _diamondNumber(BuildContext context, int number) {
     return SizedBox(
       width: 18,
       height: 18,
@@ -351,7 +351,7 @@ class _StopsIndicator extends StatelessWidget {
               angle: 0.785398,
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),

@@ -1,10 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:intl/intl.dart';
 import 'package:vite_captain/screens/wallet/topup_wallet_screen.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/services/vehicle_type_api.dart';
 import 'package:vite_captain/screens/vehicle/vehicle_details_screen.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class WalletScreen extends StatefulWidget {
   final bool showBack;
@@ -55,9 +57,12 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _loadWallet() async {
-    setState(() {
-      _loading = true;
-    });
+    final firstLoad = _transactions.isEmpty && _balance == 0;
+    if (firstLoad) {
+      setState(() {
+        _loading = true;
+      });
+    }
 
     try {
       final driverId = (await const SessionService().getDriverId())?.trim() ?? '';
@@ -281,16 +286,9 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        leading: widget.showBack
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-              )
-            : null,
-        title: const Text("Wallet"),
-        centerTitle: true,
-        elevation: 0,
+      appBar: curvedGreenAppBar(
+        title: 'My Wallet',
+        automaticallyImplyLeading: widget.showBack,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -300,12 +298,7 @@ class _WalletScreenState extends State<WalletScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF369D01),
-                    Color(0xFF246B00),
-                  ],
-                ),
+                color: const Color(0xFF009640),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -356,7 +349,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Row(
@@ -375,7 +368,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Row(
@@ -411,7 +404,7 @@ class _WalletScreenState extends State<WalletScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
@@ -452,7 +445,7 @@ class _WalletScreenState extends State<WalletScreen> {
               child: RefreshIndicator(
                 onRefresh: _loadWallet,
                 child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: ViteLoader())
                   : (_filteredTransactions.isEmpty
                       ? ListView(
                           children: const [
@@ -503,7 +496,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 margin: const EdgeInsets.only(bottom: 10),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: Theme.of(context).colorScheme.surface,
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(

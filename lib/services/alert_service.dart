@@ -1,41 +1,47 @@
-import 'dart:async';
-
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
 
 class AlertService {
-  static final AudioPlayer _player = AudioPlayer();
   static bool _isPlaying = false;
-  static Future<void>? _loopFuture;
+  static const MethodChannel _channel = MethodChannel('com.vitecaptain.driver/ride_bubble');
+
+  static Future<void> _boost() async {
+    try {
+      await _channel.invokeMethod('boostAlert');
+    } catch (_) {}
+  }
+
+  static Future<void> _restore() async {
+    try {
+      await _channel.invokeMethod('restoreAlert');
+    } catch (_) {}
+  }
 
   static Future<void> startAlert() async {
     if (_isPlaying) return;
     _isPlaying = true;
-
-    _loopFuture = () async {
-      while (_isPlaying) {
-        try {
-          await _player.stop();
-        } catch (_) {}
-
-        try {
-          await _player.play(AssetSource('sounds/beep.mp3'));
-        } catch (_) {}
-
-        try {
-          // vibration removed
-        } catch (_) {}
-
-        await Future.delayed(const Duration(seconds: 2));
-      }
-    }();
-
-    await _loopFuture;
+    await _boost();
+    try {
+      await _channel.invokeMethod('startOrderRing');
+    } catch (_) {}
   }
 
   static Future<void> stopAlert() async {
     _isPlaying = false;
     try {
-      await _player.stop();
+      await _channel.invokeMethod('stopOrderRing');
+    } catch (_) {}
+    await _restore();
+  }
+
+  static Future<void> startDutyWatch() async {
+    try {
+      await _channel.invokeMethod('startDuty');
+    } catch (_) {}
+  }
+
+  static Future<void> stopDutyWatch() async {
+    try {
+      await _channel.invokeMethod('stopDuty');
     } catch (_) {}
   }
 }

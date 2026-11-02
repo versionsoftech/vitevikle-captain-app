@@ -1,8 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/screens/home/driver_give_review_screen.dart';
 
 class DriverPaymentSuccessScreen extends StatelessWidget {
-  static const Color primaryColor = Color(0xFF22C55E);
+  static const Color primaryColor = Color(0xFF009640);
 
   final double paidAmount;
   final String rideId;
@@ -22,7 +22,7 @@ class DriverPaymentSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),

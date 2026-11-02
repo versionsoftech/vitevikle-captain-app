@@ -1,8 +1,8 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:vite_captain/maps/mappls_geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -490,7 +490,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                   title: const Text('Myself'),
                   trailing: Icon(
                     isMyself ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: isMyself ? const Color(0xFF16A34A) : Colors.grey,
+                    color: isMyself ? const Color(0xFF009640) : Colors.grey,
                   ),
                   onTap: () {
                     setState(() {
@@ -615,13 +615,13 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
     if (widget.useScaffold) {
       return Scaffold(
         resizeToAvoidBottomInset: true,
-        backgroundColor: const Color(0xFFF2F3F5),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(child: content),
       );
     }
 
     return Material(
-      color: const Color(0xFFF2F3F5),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
         child: AnimatedPadding(
@@ -635,7 +635,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
 
   Widget _buildTopBar() {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Row(
         children: [
@@ -685,7 +685,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -714,7 +714,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                                   height: 20,
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
-                                    color: Colors.black,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     borderRadius: BorderRadius.circular(5),
                                   ),
                                   child: Text(
@@ -767,16 +767,16 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
                           ),
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                         ),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.location_on_outlined,
-                          color: Colors.black,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
-                        label: const Text(
+                        label: Text(
                           'Select on map',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -792,13 +792,13 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
                           ),
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                         ),
-                        icon: const Icon(Icons.add, color: Colors.black),
-                        label: const Text(
+                        icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onSurface),
+                        label: Text(
                           'Add stops',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -816,13 +816,13 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
               ? ListView(
                   children: [
                     if (_recentLocations.isNotEmpty) ...[
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
                         child: Text(
                           'Recent locations',
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -847,13 +847,13 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                       const Divider(height: 1),
                     ],
                     if (_nearMeLocation != null) ...[
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
                         child: Text(
                           'Near me',
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -872,13 +872,13 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                       ),
                     ],
                     if (_recentLocations.isEmpty && _nearMeLocation == null)
-                      const Center(
+                      Center(
                         child: Padding(
                           padding: EdgeInsets.only(top: 24),
                           child: Text(
                             'Start typing to search locations',
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -890,8 +890,8 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                   ? Center(
                       child: Text(
                         _hadSearchError ? 'No results found' : 'No results found',
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -939,7 +939,7 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
         Icon(
           Icons.circle,
           size: 12,
-          color: isPickup ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+          color: isPickup ? const Color(0xFF009640) : const Color(0xFFEF4444),
         ),
         const SizedBox(width: 10),
         Expanded(

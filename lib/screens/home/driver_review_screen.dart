@@ -17,7 +17,7 @@ class DriverReviewScreen extends StatefulWidget {
 }
 
 class _DriverReviewScreenState extends State<DriverReviewScreen> {
-  static const Color primaryColor = Color(0xFF22C55E);
+  static const Color primaryColor = Color(0xFF009640);
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,7 @@ class _DriverReviewScreenState extends State<DriverReviewScreen> {
     final fare = fareValue is num ? fareValue.toDouble() : (double.tryParse(fareValue?.toString() ?? '') ?? 0);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -38,8 +38,8 @@ class _DriverReviewScreenState extends State<DriverReviewScreen> {
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(25),
                   ),
@@ -75,13 +75,13 @@ class _DriverReviewScreenState extends State<DriverReviewScreen> {
                                 height: 70,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(Icons.person, size: 36, color: Colors.black87);
+                                  return Icon(Icons.person, size: 36, color: Theme.of(context).colorScheme.onSurface);
                                 },
                               ),
                             )
                           : Text(
                               riderName.isNotEmpty ? riderName[0].toUpperCase() : 'C',
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Theme.of(context).colorScheme.onSurface),
                             ),
                     ),
                     const SizedBox(height: 15),

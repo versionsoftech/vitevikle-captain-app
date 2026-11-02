@@ -1,6 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:vite_captain/screens/select_service_area_screen.dart';
+import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/session_service.dart';
 
 class FirstLaunchFlowScreen extends StatefulWidget {
@@ -16,8 +18,8 @@ class FirstLaunchFlowScreen extends StatefulWidget {
 }
 
 class _FirstLaunchFlowScreenState extends State<FirstLaunchFlowScreen> {
-  static const Color _greenA = Color(0xFF16A34A);
-  static const Color _greenB = Color(0xFF22C55E);
+  static const Color _greenA = Color(0xFF009640);
+  static const Color _greenB = Color(0xFF009640);
 
   bool _checking = true;
 
@@ -108,9 +110,26 @@ class _FirstLaunchFlowScreenState extends State<FirstLaunchFlowScreen> {
 
   Future<void> _enterApp() async {
     if (!mounted) return;
+    var hasState = false;
+    try {
+      final token = (await const SessionService().getToken() ?? '').trim();
+      if (token.isNotEmpty) {
+        final res = await const ApiService().getDriverProfile(token: token);
+        final data = res['success'] == true ? res['data'] : null;
+        if (data is Map) {
+          final address = data['address'];
+          final stateName = address is Map
+              ? (address['state'] ?? data['state'] ?? '').toString().trim()
+              : (data['state'] ?? '').toString().trim();
+          hasState = stateName.isNotEmpty;
+        }
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    final page = hasState ? widget.next : SelectServiceAreaScreen(next: widget.next);
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => widget.next),
+      MaterialPageRoute(builder: (_) => page),
       (route) => false,
     );
   }
@@ -239,7 +258,6 @@ class _FirstLaunchFlowScreenState extends State<FirstLaunchFlowScreen> {
     if (_checking) {
       return const Scaffold(
         backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -281,7 +299,7 @@ class _FirstLaunchFlowScreenState extends State<FirstLaunchFlowScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(

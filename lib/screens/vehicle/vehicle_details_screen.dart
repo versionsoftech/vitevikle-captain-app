@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:vite_captain/services/vehicle_type_api.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
   final String vehicleTypeId;
@@ -42,15 +43,15 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     final title = (_data?.name.trim().isNotEmpty ?? false) ? _data!.name : 'Vehicle Details';
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ViteLoader())
           : (_data == null
               ? Center(
                   child: Column(

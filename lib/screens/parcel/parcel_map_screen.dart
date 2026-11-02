@@ -1,10 +1,11 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
+import 'package:vite_captain/maps/mappls_geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vite_captain/services/api_service.dart';
@@ -23,12 +24,10 @@ class ParcelMapScreen extends StatefulWidget {
 }
 
 class _ParcelMapScreenState extends State<ParcelMapScreen> {
-  static const String _googleApiKey = 'AIzaSyCgfyPk2RQlRS7OTkYGSk2OjOcdbzKzivc';
 
   final SessionService _sessionService = const SessionService();
-  final PolylinePoints _polylinePoints = PolylinePoints();
 
-  GoogleMapController? _map;
+  MapplsViewController? _map;
   bool _loading = true;
 
   LatLng? _driverLatLng;
@@ -152,10 +151,10 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
 
   Icon _parcelIcon(String desc) {
     final d = desc.toLowerCase();
-    if (d.contains('box')) return const Icon(Icons.inventory_2, color: Colors.green);
+    if (d.contains('box')) return const Icon(Icons.inventory_2, color: const Color(0xFF009640));
     if (d.contains('wood') || d.contains('timber')) return const Icon(Icons.forest, color: Colors.brown);
     if (d.contains('document')) return const Icon(Icons.description, color: Colors.blue);
-    return const Icon(Icons.local_shipping, color: Colors.green);
+    return const Icon(Icons.local_shipping, color: const Color(0xFF009640));
   }
 
   DateTime? _parseDate(dynamic v) {
@@ -415,25 +414,17 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
 
   Future<void> _buildRoutePolyline(LatLng origin, LatLng destination) async {
     try {
-      final result = await _polylinePoints.getRouteBetweenCoordinates(
-        googleApiKey: _googleApiKey,
-        request: PolylineRequest(
-          origin: PointLatLng(origin.latitude, origin.longitude),
-          destination: PointLatLng(destination.latitude, destination.longitude),
-          mode: TravelMode.driving,
-        ),
-      );
-
-      if (result.points.isEmpty) {
+      final route = await fetchMapplsRoute(origin, destination);
+      if (route == null) {
         return;
       }
 
-      final points = result.points.map((p) => LatLng(p.latitude, p.longitude)).toList(growable: false);
+      final points = route.points;
       _polylines = {
         Polyline(
           polylineId: const PolylineId('driver_to_pickup'),
           points: points,
-          color: Colors.black,
+          color: Theme.of(context).colorScheme.onSurface,
           width: 4,
         ),
       };
@@ -536,7 +527,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(Icons.location_on, color: Colors.green),
+                  const Icon(Icons.location_on, color: const Color(0xFF009640)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_pickupAddressForUi())),
                 ],
@@ -557,7 +548,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.inventory_2, color: Colors.green),
+                  const Icon(Icons.inventory_2, color: const Color(0xFF009640)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(desc.isEmpty ? '-' : desc)),
                 ],
@@ -568,7 +559,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
               const SizedBox(height: 8),
               Text(
                 'Price: ₹${price.toStringAsFixed(2)}',
-                style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: const Color(0xFF009640), fontWeight: FontWeight.bold),
               ),
               Text('Date: $formattedDate'),
               const SizedBox(height: 10),
@@ -804,7 +795,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  GoogleMap(
+                  MapplsView(
                     initialCameraPosition: CameraPosition(target: center, zoom: 13),
                     markers: _markers,
                     polylines: _polylines,
@@ -822,7 +813,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
                       child: SizedBox(
                         height: 26,
                         width: 26,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: ViteLoader(strokeWidth: 2),
                       ),
                     ),
                   Align(
@@ -831,7 +822,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
                       margin: const EdgeInsets.all(12),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: const [
                           BoxShadow(color: Color(0x1F000000), blurRadius: 12, offset: Offset(0, 6)),
@@ -871,7 +862,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                              const Icon(Icons.location_on, color: Colors.green, size: 18),
+                              const Icon(Icons.location_on, color: const Color(0xFF009640), size: 18),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -951,7 +942,7 @@ class _ParcelMapScreenState extends State<ParcelMapScreen> {
                                   child: ElevatedButton(
                                     onPressed: _acceptParcel,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: const Color(0xFF009640),
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

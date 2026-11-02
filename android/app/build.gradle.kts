@@ -51,40 +51,41 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            if (!hasAllSigningProps) {
-                throw GradleException(
-                    "Release signing is not configured. Missing properties in android/key.properties.\n" +
-                    "Expected entries: storeFile, storePassword, keyAlias, keyPassword."
-                )
+        if (hasAllSigningProps) {
+            create("release") {
+                val resolvedStoreFile = rootProject.file(storeFilePath)
+                if (!resolvedStoreFile.exists()) {
+                    throw GradleException(
+                        "Release signing keystore not found at: ${resolvedStoreFile.absolutePath}.\n" +
+                        "Check android/key.properties 'storeFile' path."
+                    )
+                }
+                storeFile = resolvedStoreFile
+                keyAlias = keyAliasProp
+                keyPassword = keyPasswordProp
+                storePassword = storePasswordProp
             }
-            // Resolve storeFile relative to android/ directory (where key.properties is located)
-            var resolvedStoreFile = rootProject.file(storeFilePath)
-            println("[signingConfigs.release] Resolved keystore path: ${resolvedStoreFile.absolutePath}")
-            if (!resolvedStoreFile.exists()) {
-                throw GradleException(
-                    "Release signing keystore not found at: ${resolvedStoreFile.absolutePath}.\n" +
-                    "Check android/key.properties 'storeFile' path."
-                )
-            }
-            // Log non-sensitive signing info to aid debugging
-            println("[signingConfigs.release] storeFile=${resolvedStoreFile.absolutePath}, keyAlias=${keyAliasProp}")
-
-            storeFile = resolvedStoreFile
-            keyAlias = keyAliasProp
-            keyPassword = keyPasswordProp
-            storePassword = storePasswordProp
         }
     }
 
     buildTypes {
         release {
-            // Disable shrinking/minification unless R8 rules are configured
             isMinifyEnabled = false
             isShrinkResources = false
-            // Use the proper release signing config (from key.properties)
-            signingConfig = signingConfigs.getByName("release")
+            if (hasAllSigningProps) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val buildingRelease = allTasks.any { it.name.contains("Release") }
+    if (buildingRelease && !hasAllSigningProps) {
+        throw GradleException(
+            "Release signing is not configured. Missing properties in android/key.properties.\n" +
+            "Expected entries: storeFile, storePassword, keyAlias, keyPassword."
+        )
     }
 }
 
@@ -94,4 +95,5 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
 }

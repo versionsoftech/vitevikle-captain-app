@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
@@ -21,7 +22,7 @@ class IntercityBiddingScreen extends StatefulWidget {
 }
 
 class _IntercityBiddingScreenState extends State<IntercityBiddingScreen> {
-  static const Color _green = Color(0xFF00C853);
+  static const Color _green = Color(0xFF009640);
 
   final SessionService _sessionService = const SessionService();
   late final TextEditingController _fareCtrl;
@@ -140,9 +141,9 @@ class _IntercityBiddingScreenState extends State<IntercityBiddingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
         title: const Text('OutStation', style: TextStyle(fontWeight: FontWeight.w900)),
@@ -165,7 +166,7 @@ class IntercityBidBottomSheet extends StatefulWidget {
 }
 
 class _IntercityBidBottomSheetState extends State<IntercityBidBottomSheet> {
-  static const Color _green = Color(0xFF00C853);
+  static const Color _green = Color(0xFF009640);
 
   final SessionService _sessionService = const SessionService();
   late final TextEditingController _fareCtrl;
@@ -345,8 +346,8 @@ class _IntercityBidBottomSheetState extends State<IntercityBidBottomSheet> {
           child: Container(
             height: 300,
             padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
             ),
             child: Column(
@@ -409,8 +410,8 @@ class _IntercityBidBottomSheetState extends State<IntercityBidBottomSheet> {
         maxHeight: MediaQuery.of(context).size.height * 0.75,
       ),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(25),
           ),
@@ -467,9 +468,9 @@ class _IntercityBidBottomSheetState extends State<IntercityBidBottomSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE9E9E9)),
+                    border: Border.all(color: Theme.of(context).colorScheme.surface),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,9 +532,9 @@ class _IntercityBidBottomSheetState extends State<IntercityBidBottomSheet> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE9E9E9)),
+                      border: Border.all(color: Theme.of(context).colorScheme.surface),
                     ),
                     child: Row(
                       children: [
@@ -562,7 +563,7 @@ class _IntercityBidBottomSheetState extends State<IntercityBidBottomSheet> {
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                            child: ViteLoader(strokeWidth: 2.2, color: Colors.white),
                           )
                         : Text(
                             'ACCEPT FARE ON ₹${_money(_fare)}',
@@ -583,7 +584,7 @@ class _IntercityBidBottomSheetState extends State<IntercityBidBottomSheet> {
         Positioned.fill(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-            child: Container(color: Colors.black.withOpacity(0.08)),
+            child: Container(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08)),
           ),
         ),
         Align(

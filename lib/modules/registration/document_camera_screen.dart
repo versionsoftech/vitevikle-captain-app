@@ -1,4 +1,5 @@
 import 'package:camera/camera.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:flutter/material.dart';
 
 class DocumentCameraScreen extends StatefulWidget {
@@ -14,7 +15,7 @@ class DocumentCameraScreen extends StatefulWidget {
 }
 
 class _DocumentCameraScreenState extends State<DocumentCameraScreen> {
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
 
   CameraController? _controller;
   bool _initializing = true;
@@ -116,7 +117,7 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen> {
       ),
       body: SafeArea(
         child: _initializing
-            ? const Center(child: CircularProgressIndicator(color: _green))
+            ? const Center(child: ViteLoader(color: _green))
             : (_error != null)
                 ? Center(
                     child: Padding(
@@ -143,7 +144,7 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen> {
                               height: 74,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 4),
+                                border: Border.all(color: Theme.of(context).colorScheme.surface, width: 4),
                               ),
                               child: Center(
                                 child: Container(

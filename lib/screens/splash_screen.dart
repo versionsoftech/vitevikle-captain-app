@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:vite_captain/screens/auth/login_screen.dart';
@@ -10,6 +10,7 @@ import 'package:vite_captain/providers/driver_status_summary_provider.dart';
 import 'package:vite_captain/services/local_storage_service.dart';
 import 'package:vite_captain/services/app_config.dart';
 import 'package:vite_captain/services/in_app_update_service.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 class BootstrapScreen extends StatefulWidget {
   const BootstrapScreen({super.key});
@@ -97,7 +98,7 @@ class _BootstrapScreenState extends State<BootstrapScreen> {
     return const Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: CircularProgressIndicator(color: Color(0xFF00A651)),
+        child: ViteLoader(color: Color(0xFF00A651), size: 72),
       ),
     );
   }

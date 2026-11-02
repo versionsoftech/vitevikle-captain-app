@@ -1,12 +1,12 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/screens/activity/trip_detail_screen.dart';
 import 'package:vite_captain/screens/driver_history_screen.dart';
 
 class MyEarningsScreen extends StatefulWidget {
@@ -17,11 +17,14 @@ class MyEarningsScreen extends StatefulWidget {
 }
 
 class _MyEarningsScreenState extends State<MyEarningsScreen> {
-  static const _green = Color(0xFF00A651);
-  static const double _topCardHeight = 108;
+  static const _green = Color(0xFF009640);
 
-  bool _loading = true;
+  String _range = 'today';
+  DateTime? _from;
+  DateTime? _to;
   Map<String, dynamic> _data = <String, dynamic>{};
+  List<Map<String, dynamic>> _history = <Map<String, dynamic>>[];
+  bool _historyReady = false;
 
   @override
   void initState() {
@@ -69,56 +72,117 @@ class _MyEarningsScreenState extends State<MyEarningsScreen> {
     return 'Vehicle';
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-    });
+  DateTime? _parseDay(dynamic raw) {
+    final s = (raw ?? '').toString().trim();
+    if (s.isEmpty) return null;
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(s);
+    } catch (_) {}
+    return DateTime.tryParse(s);
+  }
 
+  bool _inRange(DateTime? day) {
+    if (_range == 'all') return true;
+    if (day == null) return false;
+    final date = DateTime(day.year, day.month, day.day);
+    final now = DateTime.now();
+    if (_range == 'today') {
+      return date.year == now.year && date.month == now.month && date.day == now.day;
+    }
+    if (_range == 'month') return date.year == now.year && date.month == now.month;
+    if (_range == 'year') return date.year == now.year;
+    if (_range == 'custom') {
+      if (_from == null || _to == null) return false;
+      final start = DateTime(_from!.year, _from!.month, _from!.day);
+      final end = DateTime(_to!.year, _to!.month, _to!.day);
+      return !date.isBefore(start) && !date.isAfter(end);
+    }
+    return true;
+  }
+
+  List<Map<String, dynamic>> get _visibleRides {
+    if (!_historyReady) return const <Map<String, dynamic>>[];
+    if (_range == 'all') return _history;
+    return _history.where((ride) => _inRange(_parseDay(ride['date']))).toList();
+  }
+
+  double _minutesOf(Map<String, dynamic> ride) {
+    final match = RegExp(r'([0-9]*\.?[0-9]+)').firstMatch((ride['duration'] ?? '').toString());
+    return match == null ? 0 : (double.tryParse(match.group(1)!) ?? 0);
+  }
+
+  Future<void> _pickCustomRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+      initialDateRange: _from != null && _to != null ? DateTimeRange(start: _from!, end: _to!) : null,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(primary: _green, onPrimary: Colors.white),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _from = picked.start;
+      _to = picked.end;
+      _range = 'custom';
+    });
+  }
+
+  Future<void> _load() async {
     try {
       final token = (await const SessionService().getToken())?.trim() ?? '';
       if (token.isEmpty) {
         if (!mounted) return;
         setState(() {
           _data = <String, dynamic>{};
-          _loading = false;
+          _history = <Map<String, dynamic>>[];
+          _historyReady = false;
         });
         return;
       }
 
-      final uri = Uri.parse('$baseUrl/driver-earnings');
-      final resp = await DioClient.dio.get(
-        uri.toString(),
-        options: Options(
-          validateStatus: (_) => true,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-          },
-        ),
-      );
-
-      dynamic decoded = resp.data;
-      if (decoded is String) decoded = jsonDecode(decoded);
-      if (decoded is! Map<String, dynamic>) throw Exception('Unexpected response');
-
-      if (kDebugMode) {
-        debugPrint('driver-earnings latest_ride => ${decoded['latest_ride']}');
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      };
+      final query = <String, String>{'range': _range};
+      if (_range == 'custom' && _from != null && _to != null) {
+        query['from'] = DateFormat('yyyy-MM-dd').format(_from!);
+        query['to'] = DateFormat('yyyy-MM-dd').format(_to!);
       }
+      final results = await Future.wait([
+        DioClient.dio.get(
+          Uri.parse('$baseUrl/driver-earnings').replace(queryParameters: query).toString(),
+          options: Options(validateStatus: (_) => true, headers: headers),
+        ),
+        DioClient.dio.get(
+          '$baseUrl/driver/history',
+          options: Options(validateStatus: (_) => true, headers: headers),
+        ),
+      ]);
+
+      dynamic earnings = results[0].data;
+      if (earnings is String) earnings = jsonDecode(earnings);
+      dynamic history = results[1].data;
+      if (history is String) history = jsonDecode(history);
+      final rows = history is Map && history['data'] is List ? history['data'] as List : const <dynamic>[];
 
       if (!mounted) return;
       setState(() {
-        _data = decoded;
-        _loading = false;
+        _data = earnings is Map<String, dynamic> ? earnings : <String, dynamic>{};
+        _history = rows.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList();
+        _historyReady = history is Map && history['status'] == true;
       });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _data = <String, dynamic>{};
-        _loading = false;
-      });
-    }
+    } catch (_) {}
   }
 
   BoxDecoration _cardDecoration({Color? color, Color? borderColor}) {
@@ -136,48 +200,12 @@ class _MyEarningsScreenState extends State<MyEarningsScreen> {
     );
   }
 
-  Widget _buildTopCard(String title, String value) {
-    return Container(
-      height: _topCardHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: _cardDecoration(),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: double.infinity,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.center,
-              child: Text(
-                value,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _green),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSmallCard(String title, String value) {
     return Container(
       height: 86,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: _cardDecoration(
-        color: const Color(0xFFF6FFFA),
+        color: Theme.of(context).colorScheme.surface,
         borderColor: const Color(0xFFD1FAE5),
       ),
       child: Column(
@@ -204,74 +232,141 @@ class _MyEarningsScreenState extends State<MyEarningsScreen> {
   Widget build(BuildContext context) {
     final ok = _data['status'] == true;
     final latest = (ok ? _data['latest_ride'] : null);
-    final latestRide = latest is Map ? Map<String, dynamic>.from(latest) : <String, dynamic>{};
+    final latestRideFromApi = latest is Map ? Map<String, dynamic>.from(latest) : <String, dynamic>{};
 
-    final todayEarning = _money(ok ? _data['today_earning'] : 0);
-    final todayTips = _money(ok ? _data['today_tips'] : 0);
-    final todayHours = _text(ok ? _data['today_login_hours'] : '0 Hrs');
+    final visible = _visibleRides;
+    final useHistory = _historyReady;
+    double sumOf(String? type) {
+      final Iterable<Map<String, dynamic>> rows = type == null
+          ? visible
+          : visible.where((ride) => (ride['type'] ?? '').toString() == type);
+      return rows.fold<double>(0, (sum, ride) => sum + _asDouble(ride['amount']));
+    }
 
-    final totalEarning = _money(ok ? _data['total_earning'] : 0);
-    final totalTrips = _asInt(ok ? _data['total_trips'] : 0);
-    final totalHours = _text(ok ? _data['total_hours'] : '0 Hrs');
+    final summaryValue = useHistory
+        ? sumOf(null)
+        : (_range == 'all'
+            ? _asDouble(ok ? _data['total_earning'] : 0)
+            : _asDouble(ok ? (_data['scoped_earning'] ?? (_range == 'today' ? _data['today_earning'] : _data['total_earning'])) : 0));
+    final totalEarning = summaryValue.toStringAsFixed(2);
+    final totalTrips = useHistory
+        ? visible.length
+        : (_range == 'all' ? _asInt(ok ? _data['total_trips'] : 0) : _asInt(ok ? (_data['scoped_trips'] ?? _data['total_trips']) : 0));
+    final totalMinutes = visible.fold<double>(0, (sum, ride) => sum + _minutesOf(ride));
+    final totalHours = useHistory
+        ? (totalMinutes <= 0 ? '0 Hrs' : '${(totalMinutes / 60).toStringAsFixed(totalMinutes < 60 ? 2 : 1)} Hrs')
+        : _text(ok ? (_range == 'all' ? _data['total_hours'] : (_data['scoped_hours'] ?? _data['total_hours'])) : '0 Hrs');
+    final avgPerTrip = totalTrips <= 0 ? '0.00' : (summaryValue / totalTrips).toStringAsFixed(2);
+    final rideEarning = (useHistory ? sumOf('ride') : _asDouble(ok ? (_data['scoped_ride_earning'] ?? _data['ride_earning']) : 0)).toStringAsFixed(2);
+    final parcelEarning = (useHistory ? sumOf('parcel') : _asDouble(ok ? (_data['scoped_parcel_earning'] ?? _data['parcel_earning']) : 0)).toStringAsFixed(2);
+    final intercityEarning = (useHistory ? sumOf('intercity') : _asDouble(ok ? (_data['scoped_intercity_earning'] ?? _data['intercity_earning']) : 0)).toStringAsFixed(2);
+    final latestRide = useHistory
+        ? (visible.isEmpty
+            ? <String, dynamic>{}
+            : <String, dynamic>{
+                'ride_id': visible.first['ride_id'],
+                'pickup': visible.first['pickup'],
+                'destination': visible.first['destination'],
+                'amount': visible.first['amount'],
+                'date_time': visible.first['date'],
+                'distance': visible.first['distance'],
+                'duration': visible.first['duration'],
+                'vehicle_type': visible.first['vehicle_type'],
+                'type': visible.first['type'],
+              })
+        : latestRideFromApi;
 
+    final topInset = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text('My Earnings'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: RefreshIndicator(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(16, topInset + 16, 16, 22),
+            decoration: const BoxDecoration(
+              color: Color(0xFF009640),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+            ),
+            child: const Text(
+              'My Earnings',
+              style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
         onRefresh: _load,
         color: _green,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+        child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+                padding: EdgeInsets.zero,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: _buildTopCard("Today's Earnings", '₹$todayEarning')),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildTopCard("Today's Tips", '₹$todayTips')),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildTopCard("Today's Login Hrs", todayHours)),
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _rangeChip('Today', 'today'),
+                          _rangeChip('This Month', 'month'),
+                          _rangeChip('This Year', 'year'),
+                          _rangeChip(_customLabel(), 'custom'),
+                          _rangeChip('All', 'all'),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 18),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: _cardDecoration(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Text('Total Earnings', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Text(
-                            '₹$totalEarning',
-                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _green),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: _cardDecoration(),
+                      child: Column(
+                        children: [
+                          Text('Total Earnings', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          Text('₹ $totalEarning', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(child: _buildSmallCard('Trips', '$totalTrips')),
+                              const SizedBox(width: 8),
+                              Expanded(child: _buildSmallCard('Online', totalHours)),
+                              const SizedBox(width: 8),
+                              Expanded(child: _buildSmallCard('Avg / Trip', '₹$avgPerTrip')),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(child: _buildSmallCard('Total Trips', '$totalTrips')),
-                            const SizedBox(width: 10),
-                            Expanded(child: _buildSmallCard('Total Driving Hrs', totalHours)),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 18, 16, 8),
+                    child: Text('Earnings Breakdown', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      decoration: _cardDecoration(),
+                      child: Column(
+                        children: [
+                          _breakRow(Icons.local_taxi_outlined, 'Ride Earnings', '₹$rideEarning'),
+                          _breakRow(Icons.inventory_2_outlined, 'Parcel Earnings', '₹$parcelEarning'),
+                          _breakRow(Icons.alt_route, 'Intercity Earnings', '₹$intercityEarning'),
+                          _breakRow(Icons.schedule, 'Online Hours', totalHours, last: true),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Row(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
                     children: [
                       const Expanded(
                         child: Text(
-                          'Latest Booking',
-                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                          'Recommended Bookings',
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                         ),
                       ),
                       TextButton(
@@ -284,18 +379,97 @@ class _MyEarningsScreenState extends State<MyEarningsScreen> {
                         child: const Text('View All', style: TextStyle(color: _green, fontWeight: FontWeight.w900)),
                       ),
                     ],
+                    ),
                   ),
-                  if (latestRide.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    child: latestRide.isEmpty
+                    ? Container(
+                      padding: const EdgeInsets.all(20),
                       decoration: _cardDecoration(),
-                      child: const Text('No rides yet', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: Column(
+                        children: [
+                          Icon(Icons.receipt_long_outlined, color: Color(0xFF9CA3AF), size: 36),
+                          SizedBox(height: 8),
+                          Text('No transactions yet', style: TextStyle(fontWeight: FontWeight.w800)),
+                          SizedBox(height: 4),
+                          Text(
+                            'Your earnings details will appear here once you complete rides.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
                     )
-                  else
-                    _latestRideCard(latestRide),
+                  : GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TripDetailScreen(
+                              trip: latestRide,
+                              kind: (_text(latestRide['type']).toLowerCase() == 'parcel') ? 'parcel' : 'ride',
+                            ),
+                          ),
+                        );
+                      },
+                      child: _latestRideCard(latestRide),
+                    ),
+                  ),
                 ],
               ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  String _customLabel() {
+    if (_from == null || _to == null) return 'Custom Date';
+    final fmt = DateFormat('dd MMM');
+    return '${fmt.format(_from!)} - ${fmt.format(_to!)}';
+  }
+
+  Widget _rangeChip(String label, String value) {
+    final selected = _range == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: selected ? Colors.white : _green,
+          ),
+        ),
+        selected: selected,
+        selectedColor: _green,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        side: BorderSide(color: selected ? _green : const Color(0xFFD1D5DB)),
+        onSelected: (_) async {
+          if (value == 'custom') {
+            await _pickCustomRange();
+            return;
+          }
+          if (_range == value) return;
+          setState(() => _range = value);
+        },
+      ),
+    );
+  }
+
+  Widget _breakRow(IconData icon, String label, String value, {bool last = false}) {
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(icon, color: _green),
+          title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        if (!last) const Divider(height: 1),
+      ],
     );
   }
 
@@ -333,7 +507,7 @@ class _MyEarningsScreenState extends State<MyEarningsScreen> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6FFFA),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFD1FAE5)),
                 ),
@@ -361,7 +535,7 @@ class _MyEarningsScreenState extends State<MyEarningsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -407,7 +581,7 @@ class _MyEarningsScreenState extends State<MyEarningsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FFF7),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFD1FAE5)),
                 ),

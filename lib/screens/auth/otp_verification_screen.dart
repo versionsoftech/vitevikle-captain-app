@@ -1,4 +1,6 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'dart:io';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,8 +43,8 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  static const Color primaryGreen = Color(0xFF0FA958);
-  static const Color buttonGreen = Color(0xFF369D01);
+  static const Color primaryGreen = Color(0xFF009640);
+  static const Color buttonGreen = Color(0xFF009640);
   static const Color inputBg = Color(0xFFF1F1F1);
 
   static const int _initialSeconds = 3;
@@ -99,7 +101,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           SizedBox(
             height: 20,
             width: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.2),
+            child: ViteLoader(strokeWidth: 2.2),
           ),
         ],
       ),
@@ -159,6 +161,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   // SMS User Consent API Implementation
   void _initSmsUserConsent() async {
+    if (!Platform.isAndroid) return;
     print('[OTP USER CONSENT] =========================================');
     print('[OTP USER CONSENT] INITIALIZING SMS USER CONSENT API');
     print('[OTP USER CONSENT] =========================================');
@@ -327,8 +330,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     // FIREBASE OTP DISABLED - KEPT FOR FUTURE USE
     // _autoSub?.cancel();
     
-    // SMS User Consent API cleanup
-    SmartAuth.instance.removeUserConsentApiListener();
+    if (Platform.isAndroid) {
+      SmartAuth.instance.removeUserConsentApiListener();
+    }
     
     for (final c in _controllers) {
       c.dispose();
@@ -698,7 +702,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final double headerHeight = keyboardOpen ? 0 : expandedHeaderHeight;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         left: false,
         right: false,

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/screens/profile_screen.dart';
 import 'package:vite_captain/screens/driver_reviews_screen.dart';
 import 'package:vite_captain/screens/wallet/wallet_screen.dart';
@@ -16,6 +16,9 @@ import 'package:vite_captain/screens/document_verification_menu_screen.dart';
 import 'package:vite_captain/screens/bank_details_screen.dart';
 import 'package:vite_captain/widgets/logout_dialog.dart';
 import 'package:vite_captain/screens/expiry_history_screen.dart';
+import 'package:vite_captain/screens/notifications_screen.dart';
+import 'package:vite_captain/screens/messages_screen.dart';
+import 'package:vite_captain/screens/support_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -137,20 +140,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Widget buildToggle(String title, bool value, Function(bool) onChanged) {
-    return ListTile(
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          color: Colors.black87,
-        ),
-      ),
-      trailing: Switch(
-        value: value,
-        activeThumbColor: const Color(0xFF369D01),
-        onChanged: (_loadingServiceToggles || _updatingService) ? null : (v) => onChanged(v),
+  Widget buildToggle(String title, bool value, Function(bool) onChanged, IconData icon) {
+    final enabled = !(_loadingServiceToggles || _updatingService);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFF009640), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            thumbColor: const WidgetStatePropertyAll(Colors.white),
+            trackColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) return const Color(0xFF009640);
+              return const Color(0xFFE5E7EB);
+            }),
+            trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+            onChanged: enabled ? (v) => onChanged(v) : null,
+          ),
+        ],
       ),
     );
   }
@@ -237,7 +264,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _statusIcon(VerificationStatus status) {
     switch (status) {
       case VerificationStatus.approved:
-        return const Icon(Icons.check_circle, color: Colors.green, size: 20);
+        return const Icon(Icons.check_circle, color: Color(0xFF009640), size: 20);
       case VerificationStatus.rejected:
         return const Icon(Icons.cancel, color: Colors.red, size: 20);
       case VerificationStatus.pending:
@@ -245,16 +272,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Widget _registrationTrailing(VerificationStatus status) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 22,
+          height: 22,
+          child: Center(child: _statusIcon(status)),
+        ),
+        const SizedBox(width: 8),
+        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black26),
+      ],
+    );
+  }
+
   Widget _sectionTitle(String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 22, left: 2, bottom: 2),
       child: Text(
         text.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.7,
-          color: Color(0xFF64748B),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -280,7 +322,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0xFFE8F8EF),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor ?? const Color(0xFF0A7A40), size: 20),
@@ -289,10 +331,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
@@ -316,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       margin: const EdgeInsets.only(top: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
@@ -335,12 +377,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
+        Text(
           'Settings',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w900,
-            color: Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         Row(
@@ -349,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: const [
                   BoxShadow(
@@ -359,14 +401,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.notifications_none, color: Colors.black87),
+              child: Icon(Icons.notifications_none, color: Theme.of(context).colorScheme.onSurface),
             ),
             const SizedBox(width: 10),
             Container(
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: const [
                   BoxShadow(
@@ -383,7 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     MaterialPageRoute(builder: (_) => const WalletScreen()),
                   );
                 },
-                icon: const Icon(Icons.account_balance_wallet_outlined, color: Colors.black87),
+                icon: Icon(Icons.account_balance_wallet_outlined, color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
           ],
@@ -399,7 +441,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -556,25 +598,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6F4),
-      body: SafeArea(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(16, top + 16, 8, 22),
+            decoration: const BoxDecoration(
+              color: Color(0xFF009640),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+            ),
+            child: SizedBox(
+              height: 36,
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Settings',
+                      style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+                    },
+                    icon: const Icon(Icons.notifications_none, color: Colors.white),
+                  ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
+                    },
+                    icon: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
         child: RefreshIndicator(
-          color: const Color(0xFF369D01),
+          color: const Color(0xFF009640),
           onRefresh: () => context.read<DriverStatusSummaryProvider>().refresh(),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+            child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _topHeader(),
                   _profileCard(context),
 
                 _sectionTitle('General'),
                 _menuCard(
                   children: [
+                    _menuTile(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'Chats',
+                      iconColor: const Color(0xFF0284C7),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MessagesScreen()),
+                        );
+                      },
+                    ),
                     _menuTile(
                       icon: Icons.person_outline,
                       title: 'Profile',
@@ -640,6 +734,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onTap: () {
                         Navigator.pushNamed(context, '/app-settings');
                       },
+                    ),
+                    _menuTile(
+                      icon: Icons.headset_mic_outlined,
+                      title: 'Support',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SupportScreen(),
+                          ),
+                        );
+                      },
                       showDivider: false,
                     ),
                   ],
@@ -649,15 +755,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     buildToggle('Ride', isRideOn, (val) {
                       _onToggleChanged('ride', val);
-                    }),
+                    }, Icons.local_taxi_outlined),
                     Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
                     buildToggle('Parcel', isParcelOn, (val) {
                       _onToggleChanged('parcel', val);
-                    }),
+                    }, Icons.inventory_2_outlined),
                     Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
                     buildToggle('Intercity', isIntercityOn, (val) {
                       _onToggleChanged('intercity', val);
-                    }),
+                    }, Icons.alt_route_rounded),
                   ],
                 ),
 
@@ -669,7 +775,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Document Registration',
                       trailing: Consumer<DriverStatusSummaryProvider>(
                         builder: (context, s, _) {
-                          return _statusIcon(s.summary.documentStatus);
+                          return _registrationTrailing(s.summary.documentStatus);
                         },
                       ),
                       onTap: () {
@@ -686,14 +792,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Vehicle Registration',
                       trailing: Consumer<DriverStatusSummaryProvider>(
                         builder: (context, s, _) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _statusIcon(s.summary.vehicleStatus),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black26),
-                            ],
-                          );
+                          return _registrationTrailing(s.summary.vehicleStatus);
                         },
                       ),
                       onTap: () {
@@ -713,14 +812,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Bank Details',
                       trailing: Consumer<DriverStatusSummaryProvider>(
                         builder: (context, s, _) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _statusIcon(s.summary.bankStatus),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black26),
-                            ],
-                          );
+                          return _registrationTrailing(s.summary.bankStatus);
                         },
                       ),
                       onTap: () {
@@ -800,6 +892,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
+            ),
+          ),
+        ],
       ),
     );
   }

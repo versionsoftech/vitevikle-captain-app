@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/screens/home/select_on_map_screen.dart';
 
 class PickupScreen extends StatefulWidget {
@@ -81,7 +81,7 @@ class _PickupScreenState extends State<PickupScreen> {
             ),
           ),
         ],
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
@@ -94,7 +94,7 @@ class _PickupScreenState extends State<PickupScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -122,10 +122,10 @@ class _PickupScreenState extends State<PickupScreen> {
                                       : _pickupController.text.trim(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.black,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                               ),
@@ -145,7 +145,7 @@ class _PickupScreenState extends State<PickupScreen> {
                                         height: 24,
                                         alignment: Alignment.center,
                                         decoration: BoxDecoration(
-                                          color: Colors.black,
+                                          color: Theme.of(context).colorScheme.onSurface,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
@@ -169,9 +169,9 @@ class _PickupScreenState extends State<PickupScreen> {
                                       ),
                                       IconButton(
                                         onPressed: () => _removeStop(index),
-                                        icon: const Icon(
+                                        icon: Icon(
                                           Icons.close,
-                                          color: Color(0xFF64748B),
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                     ],
@@ -204,7 +204,7 @@ class _PickupScreenState extends State<PickupScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                           side: const BorderSide(color: Color(0xFFE5E7EB)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
@@ -232,11 +232,11 @@ class _PickupScreenState extends State<PickupScreen> {
                           if (!mounted) return;
                           Navigator.pop(context, result);
                         },
-                        icon: const Icon(Icons.location_on_outlined, color: Colors.black),
-                        label: const Text(
+                        icon: Icon(Icons.location_on_outlined, color: Theme.of(context).colorScheme.onSurface),
+                        label: Text(
                           'Select on map',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -246,7 +246,7 @@ class _PickupScreenState extends State<PickupScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                           side: const BorderSide(color: Color(0xFFE5E7EB)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
@@ -254,11 +254,11 @@ class _PickupScreenState extends State<PickupScreen> {
                           minimumSize: const Size(0, 44),
                         ),
                         onPressed: _addStop,
-                        icon: const Icon(Icons.add, color: Colors.black),
-                        label: const Text(
+                        icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onSurface),
+                        label: Text(
                           'Add stops',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -288,22 +288,22 @@ class _PickupScreenState extends State<PickupScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Could not get address',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
-                          color: Colors.black,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Please try searching for alternate locations',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -378,7 +378,7 @@ class _StopsIndicator extends StatelessWidget {
       width: 18,
       child: Column(
         children: [
-          _dot(color: const Color(0xFF16A34A)),
+          _dot(context, color: const Color(0xFF009640)),
           const SizedBox(height: 6),
           const _DottedLine(height: 22),
           const SizedBox(height: 6),
@@ -392,18 +392,18 @@ class _StopsIndicator extends StatelessWidget {
               ],
             );
           }),
-          _dot(color: const Color(0xFFEF4444)),
+          _dot(context, color: const Color(0xFFEF4444)),
         ],
       ),
     );
   }
 
-  Widget _dot({required Color color}) {
+  Widget _dot(BuildContext context, {required Color color}) {
     return Container(
       width: 12,
       height: 12,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color, width: 3),
       ),

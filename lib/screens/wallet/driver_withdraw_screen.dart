@@ -1,4 +1,5 @@
-﻿import 'dart:convert';
+import 'dart:convert';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,8 @@ import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/screens/wallet/withdraw_request_details_screen.dart';
 import 'package:vite_captain/screens/wallet/driver_withdraw_history_screen.dart';
+import 'package:vite_captain/screens/bank_details_screen.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class DriverWithdrawScreen extends StatefulWidget {
   const DriverWithdrawScreen({
@@ -169,6 +172,14 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
     }
   }
 
+  Future<void> _openChangeBank() async {
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const BankDetailsScreen(startEditing: true)),
+    );
+    if (changed == true && mounted) await _loadBank();
+  }
+
   void _snack(String msg, {Color? color}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -295,7 +306,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
               width: 320,
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
@@ -432,7 +443,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -444,7 +455,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
         ),
         child: const Row(
           children: [
-            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 18, height: 18, child: ViteLoader(strokeWidth: 2)),
             SizedBox(width: 12),
             Expanded(child: Text('Loading bank details...')),
           ],
@@ -457,11 +468,31 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7ED),
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFFED7AA)),
         ),
-        child: const Text('Bank details not found. Please add bank details first.'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Bank details not found. Please add bank details first.'),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _openChangeBank,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF009640),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('Add Bank', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5)),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -469,11 +500,15 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
     final holderName = (b['holder_name'] ?? b['accountHolderName'] ?? '').toString().trim();
     final accountNo = (b['account_no'] ?? b['accountNumber'] ?? '').toString().trim();
     final ifsc = (b['ifsc_code'] ?? b['ifscCode'] ?? '').toString().trim();
+    final status = (b['status'] ?? '').toString().trim().toLowerCase();
+    final verified = status == 'approved';
+    final statusLabel = verified ? 'Bank Verified' : (status == 'rejected' ? 'Rejected' : 'Under Review');
+    final statusColor = verified ? const Color(0xFF009640) : (status == 'rejected' ? _danger : const Color(0xFFD97706));
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -494,13 +529,13 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF16A34A).withValues(alpha: 0.10),
+                  color: statusColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.22)),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.22)),
                 ),
-                child: const Text(
-                  'Bank Verified',
-                  style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w900, fontSize: 11.5),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 11.5),
                 ),
               ),
             ],
@@ -518,10 +553,10 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _snack('Change Bank is not configured yet', color: _danger),
+                  onPressed: _openChangeBank,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF111827),
-                    side: BorderSide(color: Colors.black.withValues(alpha: 0.12)),
+                    side: BorderSide(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -531,7 +566,17 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _snack('Verify Bank is not configured yet', color: _danger),
+                  onPressed: () {
+                    if (verified) {
+                      _snack('Bank is already verified');
+                      return;
+                    }
+                    if (status == 'rejected') {
+                      _openChangeBank();
+                      return;
+                    }
+                    _snack('Bank verification is under review');
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF111827),
                     foregroundColor: Colors.white,
@@ -565,7 +610,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
           child: Text(
             v,
             textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w900, fontSize: 12.5),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 12.5),
           ),
         ),
       ],
@@ -576,7 +621,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
     return Container(
       padding: padding ?? const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -597,9 +642,9 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+          border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06)),
         ),
         child: Text(label, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
       ),
@@ -612,22 +657,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
     final canSubmit = !_loading && amount > 0 && amount <= _availableBalance;
     return Scaffold(
       backgroundColor: _bg,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(22),
-            bottomRight: Radius.circular(22),
-          ),
-          child: AppBar(
-            title: const Text('Withdraw Money'),
-            centerTitle: true,
-            elevation: 0,
-            backgroundColor: _primary,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      ),
+      appBar: curvedGreenAppBar(title: 'Withdraw Money'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -637,7 +667,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Transfer your earnings directly to your bank account',
-                  style: TextStyle(color: Colors.black.withValues(alpha: 0.55), fontWeight: FontWeight.w700, fontSize: 12.5),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55), fontWeight: FontWeight.w700, fontSize: 12.5),
                 ),
               ),
               const SizedBox(height: 14),
@@ -673,9 +703,9 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.16),
+                                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.16),
                                   borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+                                  border: Border.all(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.20)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -767,7 +797,7 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDF4),
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(color: const Color(0xFFBBF7D0)),
                             ),
@@ -818,10 +848,10 @@ class _DriverWithdrawScreenState extends State<DriverWithdrawScreen> {
                 child: Container(
                   alignment: Alignment.center,
                   child: _loading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: ViteLoader(strokeWidth: 2, color: Theme.of(context).colorScheme.surface),
                         )
                       : const Text('Request Withdraw', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5)),
                 ),

@@ -27,7 +27,7 @@ class FinishRideScreen extends StatelessWidget {
     final fare = fareValue is num ? fareValue.toString() : (fareValue?.toString() ?? '');
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Finish Ride'),
         backgroundColor: const Color(0xFFFF3B30),

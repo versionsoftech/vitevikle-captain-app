@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:vite_captain/modules/documents/driver_documents_upload_screen.dart';
@@ -22,7 +22,7 @@ class DriverLicenseScreen extends StatefulWidget {
 }
 
 class _DriverLicenseScreenState extends State<DriverLicenseScreen> {
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
   static const Color _lightGreen = Color(0xFFB7E11A);
 
   final TextEditingController _licenseNumberController = TextEditingController();
@@ -140,15 +140,15 @@ class _DriverLicenseScreenState extends State<DriverLicenseScreen> {
             child: Container(
               height: 92,
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F1F1),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: (path != null && path.trim().isNotEmpty)
                     ? Image.file(File(path), fit: BoxFit.cover)
-                    : const Center(
-                        child: Icon(Icons.add, size: 32, color: Colors.black87),
+                    : Center(
+                        child: Icon(Icons.add, size: 32, color: Theme.of(context).colorScheme.onSurface),
                       ),
               ),
             ),
@@ -157,7 +157,7 @@ class _DriverLicenseScreenState extends State<DriverLicenseScreen> {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
           ),
         ],
       ),
@@ -192,9 +192,9 @@ class _DriverLicenseScreenState extends State<DriverLicenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         title: const Text('Driver license', style: TextStyle(fontWeight: FontWeight.w900)),
@@ -245,9 +245,9 @@ class _DriverLicenseScreenState extends State<DriverLicenseScreen> {
               const Spacer(),
               Row(
                 children: [
-                  const Text(
+                  Text(
                     '2 of 4',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                   ),
                   const Spacer(),
                   SizedBox(
@@ -255,7 +255,7 @@ class _DriverLicenseScreenState extends State<DriverLicenseScreen> {
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF1F1F1),
+                        backgroundColor: Theme.of(context).colorScheme.surface,
                         foregroundColor: Colors.black87,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,

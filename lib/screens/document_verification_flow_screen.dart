@@ -1,10 +1,12 @@
-﻿import 'dart:io';
+import 'dart:io';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vite_captain/modules/registration/document_camera_screen.dart';
 import 'package:vite_captain/screens/document_capture_instruction_screen.dart';
 import 'package:vite_captain/screens/document_selfie_camera_screen.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class DocumentVerificationFlowScreen extends StatefulWidget {
   const DocumentVerificationFlowScreen({super.key});
@@ -353,7 +355,7 @@ class _DocumentVerificationFlowScreenState extends State<DocumentVerificationFlo
             child: Container(
               height: 92,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE5E7EB)),
                 boxShadow: const [
@@ -375,9 +377,9 @@ class _DocumentVerificationFlowScreenState extends State<DocumentVerificationFlo
                                 key: ValueKey<String>(path),
                                 fit: BoxFit.cover,
                               )
-                            : const Center(
+                            : Center(
                                 key: ValueKey<String>('empty'),
-                                child: Icon(Icons.add, size: 30, color: Colors.black87),
+                                child: Icon(Icons.add, size: 30, color: Theme.of(context).colorScheme.onSurface),
                               ),
                       ),
                     ),
@@ -409,7 +411,7 @@ class _DocumentVerificationFlowScreenState extends State<DocumentVerificationFlo
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
           ),
@@ -503,25 +505,13 @@ class _DocumentVerificationFlowScreenState extends State<DocumentVerificationFlo
 
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: Text(
-          _stepTitle,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 14),
-            child: Center(
-              child: Text('Close', style: TextStyle(fontWeight: FontWeight.w800)),
-            ),
-          )
+      appBar: curvedGreenAppBar(
+        title: _stepTitle,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+          ),
         ],
       ),
       body: SafeArea(
@@ -546,7 +536,7 @@ class _DocumentVerificationFlowScreenState extends State<DocumentVerificationFlo
                 children: [
                   Text(
                     '$_stepNumber of 3',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                   ),
                   const Spacer(),
                   SizedBox(
@@ -582,7 +572,7 @@ class _DocumentVerificationFlowScreenState extends State<DocumentVerificationFlo
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                                  child: ViteLoader(strokeWidth: 2.4, color: Colors.white),
                                 )
                               : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,

@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
 
@@ -61,6 +61,27 @@ class ChatNotificationApi {
     final c = decoded['unread_count'];
     if (c is num) return c.toInt();
     return int.tryParse(_text(c)) ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> listApp({
+    required String receiverId,
+    int limit = 50,
+  }) async {
+    final uri = Uri.parse('$baseUrl/app-notifications?receiver_id=$receiverId&receiver_role=driver&limit=$limit');
+    final Response resp = await DioClient.dio.get(uri.toString(), options: Options(validateStatus: (_) => true));
+    if (resp.data is! Map) return <Map<String, dynamic>>[];
+    final decoded = Map<String, dynamic>.from(resp.data as Map);
+    if (decoded['success'] != true || decoded['data'] is! List) return <Map<String, dynamic>>[];
+    return (decoded['data'] as List).whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<void> markAppRead({required String receiverId}) async {
+    final uri = Uri.parse('$baseUrl/app-notifications/mark-read');
+    await DioClient.dio.post(
+      uri.toString(),
+      data: {'receiver_id': receiverId, 'receiver_role': 'driver'},
+      options: Options(validateStatus: (_) => true),
+    );
   }
 }
 

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/screens/passbook_screen.dart';
 import 'package:vite_captain/screens/rapido_wallet_screen.dart';
 
@@ -33,11 +33,11 @@ class PaymentsScreen extends StatelessWidget {
     );
   }
 
-  Widget _card({required Widget child}) {
+  Widget _card(BuildContext context, {required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -51,7 +51,7 @@ class PaymentsScreen extends StatelessWidget {
     );
   }
 
-  Widget _upiRow({required String title, String? subtitle, IconData? icon}) {
+  Widget _upiRow(BuildContext context, {required String title, String? subtitle, IconData? icon}) {
     return Column(
       children: [
         Padding(
@@ -60,7 +60,7 @@ class PaymentsScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 backgroundColor: Colors.grey.shade200,
-                child: Icon(icon ?? Icons.payment, color: Colors.black87),
+                child: Icon(icon ?? Icons.payment, color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -95,7 +95,7 @@ class PaymentsScreen extends StatelessWidget {
     );
   }
 
-  Widget _otherRow({
+  Widget _otherRow(BuildContext context, {
     required IconData icon,
     required String title,
     bool showArrow = false,
@@ -111,7 +111,7 @@ class PaymentsScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   backgroundColor: Colors.grey.shade200,
-                  child: Icon(icon, color: Colors.black87),
+                  child: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -144,7 +144,7 @@ class PaymentsScreen extends StatelessWidget {
         ),
         title: const Text('Payments'),
         actions: [_helpButton(context)],
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 1,
       ),
@@ -165,7 +165,7 @@ class PaymentsScreen extends StatelessWidget {
                     ),
                   );
                 },
-                child: _card(
+                child: _card(context,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -205,7 +205,7 @@ class PaymentsScreen extends StatelessWidget {
                             icon: const Icon(Icons.add, size: 18),
                             label: const Text('Add Money'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
+                              backgroundColor: Theme.of(context).colorScheme.surface,
                               foregroundColor: Colors.black87,
                               elevation: 0,
                               side: BorderSide(color: Colors.grey.shade300),
@@ -265,24 +265,24 @@ class PaymentsScreen extends StatelessWidget {
               const SizedBox(height: 20),
               _sectionTitle('Pay by any UPI app'),
               const SizedBox(height: 12),
-              _card(
+              _card(context, 
                 child: Column(
                   children: [
-                    _upiRow(
+                    _upiRow(context, 
                       title: 'Paytm',
                       subtitle: 'Get ₹25–₹200 Cashback | MOV ₹29 | T&Cs Apply | 01–31 March',
                     ),
-                    _upiRow(title: 'GPay'),
-                    _upiRow(title: 'PhonePe'),
-                    _upiRow(title: 'CRED'),
-                    _upiRow(title: 'iMobile'),
+                    _upiRow(context, title: 'GPay'),
+                    _upiRow(context, title: 'PhonePe'),
+                    _upiRow(context, title: 'CRED'),
+                    _upiRow(context, title: 'iMobile'),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               _sectionTitle('Pay Later'),
               const SizedBox(height: 12),
-              _card(
+              _card(context, 
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -341,11 +341,11 @@ class PaymentsScreen extends StatelessWidget {
               const SizedBox(height: 20),
               _sectionTitle('Others'),
               const SizedBox(height: 12),
-              _card(
+              _card(context, 
                 child: Column(
                   children: [
-                    _otherRow(icon: Icons.payments_outlined, title: 'Cash'),
-                    _otherRow(
+                    _otherRow(context, icon: Icons.payments_outlined, title: 'Cash'),
+                    _otherRow(context, 
                       icon: Icons.menu_book_outlined,
                       title: 'Show Passbook',
                       showArrow: true,

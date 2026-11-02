@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:intl/intl.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 import 'package:dio/dio.dart';
 
 class ExpiryHistoryScreen extends StatefulWidget {
@@ -288,7 +290,7 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
                 }
               },
               selectedColor: const Color(0xFF369D01),
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               side: BorderSide(
                 color: isSelected ? const Color(0xFF369D01) : Colors.grey.shade300,
               ),
@@ -309,8 +311,8 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(20),
@@ -430,8 +432,8 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(20),
@@ -608,8 +610,8 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
         minChildSize: 0.5,
         maxChildSize: 0.95,
         builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -807,33 +809,9 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Text(
-              'Expiry & Penalty',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              'Track expired rides and penalties',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF369D01),
-        foregroundColor: Colors.white,
+      appBar: curvedGreenAppBar(
+        title: 'Expiry & Penalty',
+        subtitle: 'Track expired rides and penalties',
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -862,7 +840,7 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
         future: _expiryHistoryFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: ViteLoader());
           }
 
           if (snapshot.hasError) {
@@ -990,6 +968,34 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
                     ),
 
                   // Account Review Warning Banner (Old format)
+                  if (!accountReviewRequired && (expiryCount is num ? expiryCount > 0 : int.tryParse('$expiryCount') != null && int.parse('$expiryCount') > 0))
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border.all(color: const Color(0xFF009640)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.verified_rounded, color: Color(0xFF007A34)),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Review resolved. You can log in and go online again.',
+                              style: TextStyle(
+                                color: Color(0xFF007A34),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   if (!isNewFormat && accountReviewRequired)
                     Container(
                       width: double.infinity,
@@ -1160,7 +1166,7 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
                         const SizedBox(width: 8),
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.grey.shade300),
                           ),
@@ -1173,7 +1179,7 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
                         const SizedBox(width: 8),
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.grey.shade300),
                           ),
@@ -1234,7 +1240,7 @@ class _ExpiryHistoryScreenState extends State<ExpiryHistoryScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(18),
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.surface,
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.grey.shade200,

@@ -1,4 +1,5 @@
-﻿import 'dart:convert';
+import 'dart:convert';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class VehicleRegistrationScreen extends StatefulWidget {
   const VehicleRegistrationScreen({super.key});
@@ -819,7 +821,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.black87),
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface),
       ),
     );
   }
@@ -828,7 +830,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
@@ -847,22 +849,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Vehicle Registration',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: false,
-      ),
+      appBar: curvedGreenAppBar(title: 'Vehicle Registration'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -908,7 +895,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: ViteLoader(strokeWidth: 2),
                         )
                       : const Icon(Icons.keyboard_arrow_down_rounded),
                   items: _vehicleTypes
@@ -948,7 +935,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
                   value: _selectedBrand,
                   decoration: _inputDecoration('Select Brand'),
                   icon: _loadingBrands
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(width: 18, height: 18, child: ViteLoader(strokeWidth: 2))
                       : const Icon(Icons.keyboard_arrow_down_rounded),
                   items: _brands
                       .map((b) => DropdownMenuItem<Map<String, String>>(
@@ -988,7 +975,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
                   value: _selectedModel,
                   decoration: _inputDecoration('Select Model'),
                   icon: _loadingModels
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(width: 18, height: 18, child: ViteLoader(strokeWidth: 2))
                       : const Icon(Icons.keyboard_arrow_down_rounded),
                   items: _models
                       .map((m) => DropdownMenuItem<Map<String, String>>(
@@ -1021,7 +1008,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
                   value: _selectedModelYear,
                   decoration: _inputDecoration('Select Model Year'),
                   icon: _loadingModelYears
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(width: 18, height: 18, child: ViteLoader(strokeWidth: 2))
                       : const Icon(Icons.keyboard_arrow_down_rounded),
                   items: _modelYears
                       .map((y) => DropdownMenuItem<Map<String, String>>(
@@ -1051,7 +1038,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
                   value: _selectedColor,
                   decoration: _inputDecoration('Select Color'),
                   icon: _loadingColors
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(width: 18, height: 18, child: ViteLoader(strokeWidth: 2))
                       : const Icon(Icons.keyboard_arrow_down_rounded),
                   items: _colors
                       .map((c) => DropdownMenuItem<Map<String, String>>(
@@ -1078,7 +1065,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
                   value: _selectedFuelType,
                   decoration: _inputDecoration('Select Fuel Type'),
                   icon: _loadingFuelTypes
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(width: 18, height: 18, child: ViteLoader(strokeWidth: 2))
                       : const Icon(Icons.keyboard_arrow_down_rounded),
                   items: _fuelTypes
                       .map((f) => DropdownMenuItem<String>(
@@ -1318,7 +1305,7 @@ class _VehicleRegistrationScreenState extends State<VehicleRegistrationScreen> {
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: ViteLoader(strokeWidth: 2, color: Colors.white),
                             )
                           : const Text(
                               'Register',

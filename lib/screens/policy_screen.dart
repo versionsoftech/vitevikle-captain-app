@@ -172,7 +172,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
+                          color: Theme.of(context).colorScheme.surface.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(headerIcon, color: Colors.white),
@@ -196,7 +196,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
+                          color: Theme.of(context).colorScheme.surface.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(

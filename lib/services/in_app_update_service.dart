@@ -135,23 +135,12 @@ class InAppUpdateService {
     if (isForceUpdateRequired(updateData)) {
       await _showBlockingDialog(
         context,
-        title: 'Update Required',
+        title: 'Update App',
         message: (updateData['force_update_message'] ??
-                'A critical update is required. Please update to continue using the app.')
+                'A new version is available. Please update to continue.')
             .toString(),
         showUpdateButton: true,
-        onUpdate: () async {
-          try {
-            if (Platform.isAndroid) {
-              final info = await InAppUpdate.checkForUpdate();
-              if (info.updateAvailability == UpdateAvailability.updateAvailable) {
-                await InAppUpdate.performImmediateUpdate();
-                return;
-              }
-            }
-          } catch (_) {}
-          await openStore(updateData, appType: appType);
-        },
+        onUpdate: () => openStore(updateData, appType: appType),
       );
       // Dialog dismissed only via Exit; do not keep re-prompting this session.
       return false;
@@ -177,33 +166,16 @@ class InAppUpdateService {
     if (_forceDialogVisible) return;
     _forceDialogVisible = true;
     try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          return PopScope(
-            canPop: false,
-            child: AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-              content: Text(message),
-              actions: [
-                TextButton(
-                  onPressed: () => SystemNavigator.pop(),
-                  child: const Text('Exit'),
-                ),
-                if (showUpdateButton)
-                  FilledButton(
-                    onPressed: () async {
-                      if (onUpdate != null) await onUpdate();
-                    },
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00A651)),
-                    child: const Text('Update Now'),
-                  ),
-              ],
-            ),
-          );
-        },
+      await Navigator.of(context, rootNavigator: true).push<void>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => _UpdateRequiredPage(
+            title: title,
+            message: message,
+            showUpdateButton: showUpdateButton,
+            onUpdate: onUpdate,
+          ),
+        ),
       );
     } finally {
       _forceDialogVisible = false;
@@ -295,4 +267,88 @@ enum UpdateResult {
   forceUpdateRequired,
   maintenanceMode,
   error,
+}
+
+class _UpdateRequiredPage extends StatelessWidget {
+  const _UpdateRequiredPage({
+    required this.title,
+    required this.message,
+    required this.showUpdateButton,
+    this.onUpdate,
+  });
+
+  final String title;
+  final String message;
+  final bool showUpdateButton;
+  final Future<void> Function()? onUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 16 + bottom),
+            child: Column(
+              children: [
+                const Spacer(),
+                Image.asset(
+                  'assets/images/update_app.png',
+                  height: 280,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 15, height: 1.4, color: Color(0xFF667085), fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                if (!showUpdateButton)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton(
+                      onPressed: () => SystemNavigator.pop(),
+                      child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  )
+                else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF009640),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () async {
+                        if (onUpdate != null) await onUpdate!();
+                      },
+                      child: const Text('Update', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => SystemNavigator.pop(),
+                    child: const Text('Exit', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

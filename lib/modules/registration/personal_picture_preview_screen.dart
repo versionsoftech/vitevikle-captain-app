@@ -1,6 +1,7 @@
 ﻿import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vite_captain/modules/registration/driver_license_screen.dart';
 
@@ -68,9 +69,9 @@ class _PersonalPicturePreviewScreenState extends State<PersonalPicturePreviewScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         title: const Text('Personal picture', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -106,11 +107,11 @@ class _PersonalPicturePreviewScreenState extends State<PersonalPicturePreviewScr
                 ),
               ),
               const SizedBox(height: 22),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Continue if the picture is clear and\nwell-lit',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black87),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                 ),
               ),
               const Spacer(),
@@ -130,7 +131,7 @@ class _PersonalPicturePreviewScreenState extends State<PersonalPicturePreviewScr
                       ? const SizedBox(
                           height: 22,
                           width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.black87)),
+                          child: ViteLoader(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.black87)),
                         )
                       : const Text('Use picture', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
                 ),
@@ -143,7 +144,7 @@ class _PersonalPicturePreviewScreenState extends State<PersonalPicturePreviewScr
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.black87,
                     side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    backgroundColor: const Color(0xFFF1F1F1),
+                    backgroundColor: Theme.of(context).colorScheme.surface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),

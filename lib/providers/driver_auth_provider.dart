@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/local_storage_service.dart';
 import 'package:vite_captain/services/session_service.dart';
@@ -35,7 +35,7 @@ class DriverAuthProvider extends ChangeNotifier {
         final s = status.trim().toUpperCase();
         if (s == 'APPROVED') {
           statusBool = true;
-        } else if (s == 'SUSPENDED' || s == 'PENDING' || s == 'VERIFIED' || s == 'DOCUMENT_PENDING' || s == 'NEW_DRIVER') {
+        } else if (s == 'SUSPENDED' || s == 'UNDER_REVIEW' || s == 'PENDING' || s == 'VERIFIED' || s == 'DOCUMENT_PENDING' || s == 'NEW_DRIVER') {
           statusBool = false;
         }
       }

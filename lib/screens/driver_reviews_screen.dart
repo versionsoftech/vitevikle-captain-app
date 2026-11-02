@@ -1,12 +1,27 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:intl/intl.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
-class DriverReviewsScreen extends StatelessWidget {
-  static const Color primaryColor = Color(0xFF22C55E);
-
+class DriverReviewsScreen extends StatefulWidget {
   const DriverReviewsScreen({super.key});
+
+  @override
+  State<DriverReviewsScreen> createState() => _DriverReviewsScreenState();
+}
+
+class _DriverReviewsScreenState extends State<DriverReviewsScreen> {
+  static const Color primaryColor = Color(0xFF009640);
+  late final Future<Map<String, dynamic>> _reviewsFuture = _loadReviews();
+
+  Future<Map<String, dynamic>> _loadReviews() async {
+    final driverId = (await const SessionService().getDriverId() ?? '').trim();
+    if (driverId.isEmpty) {
+      return <String, dynamic>{'success': true, 'data': <dynamic>[]};
+    }
+    return const ApiService().getDriverReviews(driverId: driverId);
+  }
 
   Widget _skeletonCard() {
     Widget bar({required double w, required double h}) {
@@ -24,7 +39,7 @@ class DriverReviewsScreen extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -94,49 +109,16 @@ class DriverReviewsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('My Reviews'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              primaryColor.withOpacity(0.08),
-            ],
-          ),
-        ),
-        child: FutureBuilder<String?>(
-          future: const SessionService().getDriverId(),
-          builder: (context, driverSnap) {
-            final driverId = (driverSnap.data ?? '').trim();
-            if (driverSnap.connectionState != ConnectionState.done) {
-              return ListView(
-                physics: const BouncingScrollPhysics(),
-                children: List.generate(6, (_) => _skeletonCard()),
-              );
-            }
-            if (driverId.isEmpty) {
-              return const Center(child: Text('No reviews yet'));
-            }
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: curvedGreenAppBar(title: 'My Reviews'),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _reviewsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const SizedBox.shrink();
+          }
 
-            return FutureBuilder<Map<String, dynamic>>(
-              future: const ApiService().getDriverReviews(driverId: driverId),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return ListView(
-                    physics: const BouncingScrollPhysics(),
-                    children: List.generate(6, (_) => _skeletonCard()),
-                  );
-                }
-
-                final res = snapshot.data ?? const <String, dynamic>{};
+          final res = snapshot.data ?? const <String, dynamic>{};
                 final ok = res['success'] == true;
                 final list = ok && res['data'] is List ? (res['data'] as List) : const <dynamic>[];
 
@@ -145,7 +127,7 @@ class DriverReviewsScreen extends StatelessWidget {
                 }
 
                 return ListView.builder(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const ClampingScrollPhysics(),
                   padding: const EdgeInsets.only(top: 10, bottom: 16),
                   itemCount: list.length,
                   itemBuilder: (context, index) {
@@ -172,7 +154,7 @@ class DriverReviewsScreen extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: const [
                           BoxShadow(
@@ -194,7 +176,7 @@ class DriverReviewsScreen extends StatelessWidget {
                                 child: !hasImage
                                     ? Text(
                                         (name.isNotEmpty ? name[0] : 'U').toUpperCase(),
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                                       )
                                     : null,
                               ),
@@ -226,7 +208,7 @@ class DriverReviewsScreen extends StatelessWidget {
                           if (message.isNotEmpty)
                             Text(
                               message,
-                              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600),
                             ),
                           if (tags.isNotEmpty) ...[
                             const SizedBox(height: 10),
@@ -260,10 +242,7 @@ class DriverReviewsScreen extends StatelessWidget {
                     );
                   },
                 );
-              },
-            );
-          },
-        ),
+        },
       ),
     );
   }

@@ -1,5 +1,6 @@
 ﻿import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:vite_captain/screens/personal_picture/image_preview_screen.dart';
 
 class CameraCaptureScreen extends StatefulWidget {
@@ -118,7 +119,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
             Positioned.fill(
               child: _initializing || controller == null
                   ? const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                      child: ViteLoader(color: Colors.white),
                     )
                   : CameraPreview(controller),
             ),
@@ -190,14 +191,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
                       height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
+                        border: Border.all(color: Theme.of(context).colorScheme.surface, width: 4),
                       ),
                       child: _capturing
                           ? const Center(
                               child: SizedBox(
                                 width: 22,
                                 height: 22,
-                                child: CircularProgressIndicator(
+                                child: ViteLoader(
                                   strokeWidth: 3,
                                   color: Colors.white,
                                 ),

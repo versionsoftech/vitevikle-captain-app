@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -165,6 +165,11 @@ class AuthProvider extends ChangeNotifier {
 
     if (status == 'SUSPENDED') {
       await go(const DriverSuspendedScreen());
+      return;
+    }
+
+    if (status == 'UNDER_REVIEW') {
+      await go(const FirstLaunchFlowScreen(next: MapScreen()));
       return;
     }
 

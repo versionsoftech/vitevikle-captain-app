@@ -1,4 +1,5 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -7,9 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
+import 'package:vite_captain/maps/open_mappls_navigation.dart';
 import 'package:slide_to_act/slide_to_act.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -21,15 +23,14 @@ import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/services/chat_notification_provider.dart';
 import 'package:vite_captain/screens/home/driver_finish_ride_map_screen.dart';
 import 'package:vite_captain/screens/home/driver_ride_in_progress_screen.dart';
+import 'package:vite_captain/widgets/send_ride_notification_sheet.dart';
 
 class NavigationMapScreen extends StatefulWidget {
   final Map<String, dynamic> ride;
-  final String googleApiKey;
 
   const NavigationMapScreen({
     super.key,
     required this.ride,
-    required this.googleApiKey,
   });
 
   @override
@@ -37,16 +38,15 @@ class NavigationMapScreen extends StatefulWidget {
 }
 
 class _NavigationMapScreenState extends State<NavigationMapScreen> {
-  static const themeGreen = Color(0xFF22C55E);
+  static const themeGreen = Color(0xFF009640);
   static const sosRed = Color(0xFFEF4444);
   static const double _arrivedDistanceMeters = 200;
   static const int _arrivedEtaMinutes = 2;
   static const double _dropArrivedDistanceMeters = 30;
 
   final LocationService _locationService = const LocationService();
-  final PolylinePoints _polylinePoints = PolylinePoints();
 
-  GoogleMapController? _map;
+  MapplsViewController? _map;
   LatLng? _driverLatLng;
   LatLng? _pickupLatLng;
   LatLng? _dropLatLng;
@@ -104,31 +104,12 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
   }
 
   Future<void> _openGoogleNavigation(LatLng destination, {List<LatLng> waypoints = const <LatLng>[]}) async {
-    final navUrl = Uri.parse(
-      'google.navigation:q=${destination.latitude},${destination.longitude}&mode=d',
-    );
-    final wp = waypoints
-        .map((p) => '${p.latitude},${p.longitude}')
-        .join('|');
-    final webUrl = Uri.parse(
-      waypoints.isEmpty
-          ? 'https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=driving'
-          : 'https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=driving&waypoints=$wp',
-    );
-
-    try {
-      if (waypoints.isEmpty) {
-        final ok = await canLaunchUrl(navUrl);
-        if (ok) {
-          await launchUrl(navUrl, mode: LaunchMode.externalApplication);
-          return;
-        }
-      }
-    } catch (_) {}
-
-    try {
-      await launchUrl(webUrl, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+    final opened = await openMapplsNavigation(destination, waypoints: waypoints);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Install the Mappls app to navigate')),
+      );
+    }
   }
 
   String _formatTimer(int seconds) {
@@ -495,7 +476,6 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
         builder: (_) => DriverFinishRideMapScreen(
           rideId: rideId,
           ride: widget.ride,
-          googleApiKey: widget.googleApiKey,
         ),
       ),
       (route) => false,
@@ -727,7 +707,6 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
           MaterialPageRoute(
             builder: (_) => DriverRideInProgressScreen(
               ride: widget.ride,
-              googleApiKey: widget.googleApiKey,
             ),
           ),
           (route) => false,
@@ -751,23 +730,6 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
     return LatLng(lat, lng);
   }
 
-  Uri _buildDirectionsUri({
-    required LatLng origin,
-    required LatLng destination,
-    required String apiKey,
-  }) {
-    return Uri.https(
-      'maps.googleapis.com',
-      '/maps/api/directions/json',
-      <String, String>{
-        'origin': '${origin.latitude},${origin.longitude}',
-        'destination': '${destination.latitude},${destination.longitude}',
-        'mode': 'driving',
-        'key': apiKey,
-      },
-    );
-  }
-
   Future<void> _fitBounds(LatLng a, LatLng b) async {
     final map = _map;
     if (map == null) return;
@@ -787,48 +749,15 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
   }
 
   Future<void> _loadRoute(LatLng origin, LatLng destination) async {
-    final apiKey = widget.googleApiKey.trim();
-    if (apiKey.isEmpty) return;
-
     try {
-      final res = await DioClient.dio.get(
-        _buildDirectionsUri(
-          origin: origin,
-          destination: destination,
-          apiKey: apiKey,
-        ).toString(),
-      );
-
-      dynamic raw = res.data;
-      if (raw is String) raw = jsonDecode(raw);
-      final data = raw as Map<String, dynamic>;
-      final routes = (data['routes'] as List<dynamic>? ?? []);
-      if (routes.isEmpty) return;
-
-      final route0 = routes.first as Map<String, dynamic>;
-      final overview = (route0['overview_polyline'] as Map<String, dynamic>?) ?? {};
-      final encoded = (overview['points'] as String?) ?? '';
-      if (encoded.isEmpty) return;
-
-      final decoded = _polylinePoints
-          .decodePolyline(encoded)
-          .map((p) => LatLng(p.latitude, p.longitude))
-          .toList(growable: false);
-
-      final legs = (route0['legs'] as List<dynamic>? ?? []);
-      String? distance;
-      String? duration;
-      if (legs.isNotEmpty) {
-        final leg0 = legs.first as Map<String, dynamic>;
-        distance = (leg0['distance'] as Map<String, dynamic>?)?['text']?.toString();
-        duration = (leg0['duration'] as Map<String, dynamic>?)?['text']?.toString();
-      }
+      final route = await fetchMapplsRoute(origin, destination);
+      if (route == null) return;
 
       if (!mounted) return;
       setState(() {
-        _distanceText = distance;
-        _durationText = duration;
-        _routePoints = decoded.isNotEmpty ? decoded : [origin, destination];
+        _distanceText = route.distanceText;
+        _durationText = route.durationText;
+        _routePoints = route.points;
       });
 
       final driver = _driverLatLng;
@@ -863,7 +792,6 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
         MaterialPageRoute(
           builder: (_) => DriverRideInProgressScreen(
             ride: widget.ride,
-            googleApiKey: widget.googleApiKey,
           ),
         ),
         (route) => false,
@@ -1119,22 +1047,29 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
         (_durationText != null && _durationText!.isNotEmpty);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_rideStarted ? 'Trip in progress' : 'Going to Pickup'),
         backgroundColor: themeGreen,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Send notification',
+            onPressed: () => showSendRideNotificationSheet(context, widget.ride),
+            icon: const Icon(Icons.notifications_rounded),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
+                  color: Theme.of(context).colorScheme.surface.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withOpacity(0.22)),
+                  border: Border.all(color: Theme.of(context).colorScheme.surface.withOpacity(0.22)),
                 ),
                 child: Text(
                   _formatTimer(_elapsedSeconds),
@@ -1149,7 +1084,7 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
         top: false,
         child: Stack(
           children: [
-            GoogleMap(
+            MapplsView(
               initialCameraPosition: CameraPosition(
                 target: pickupLatLng ?? const LatLng(20.5937, 78.9629),
                 zoom: 13,
@@ -1163,14 +1098,52 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
                 _map = controller;
               },
             ),
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
+              child: Material(
+                color: Colors.white,
+                elevation: 6,
+                shadowColor: Colors.black26,
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _rideStarted ? 'End the ride' : 'Drive to pickup',
+                              style: const TextStyle(color: themeGreen, fontWeight: FontWeight.w800, fontSize: 16),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _rideStarted ? "Please don't be late" : "Please don't be late to pickup",
+                              style: const TextStyle(color: themeGreen, fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        _formatTimer(_elapsedSeconds),
+                        style: const TextStyle(color: themeGreen, fontWeight: FontWeight.w900, fontSize: 22),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             if (showBadge)
               Positioned(
-                top: 16,
+                top: 96,
                 left: 16,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: const [
                       BoxShadow(color: Color(0x14000000), blurRadius: 14, offset: Offset(0, 6)),
@@ -1220,7 +1193,7 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
                   const SizedBox(height: 10),
                   FloatingActionButton.extended(
                     heroTag: 'manual_arrived',
-                    backgroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
                     foregroundColor: themeGreen,
                     onPressed: () {
                       if (_arrivedPopupShown) return;
@@ -1252,7 +1225,7 @@ class _NavigationMapScreenState extends State<NavigationMapScreen> {
                 child: SizedBox(
                   height: 22,
                   width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: ViteLoader(strokeWidth: 2),
                 ),
               ),
           ],
@@ -1288,7 +1261,7 @@ class _OtpBottomSheet extends StatefulWidget {
 }
 
 class _OtpBottomSheetState extends State<_OtpBottomSheet> {
-  static const themeGreen = Color(0xFF22C55E);
+  static const themeGreen = Color(0xFF009640);
   static const lightGreen = Color(0xFFDCFCE7);
   static const uberRed = Color(0xFFFF3B30);
 
@@ -1414,8 +1387,8 @@ class _OtpBottomSheetState extends State<_OtpBottomSheet> {
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomPadding),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(color: Color(0x22000000), blurRadius: 18, offset: Offset(0, -6)),
@@ -1436,11 +1409,11 @@ class _OtpBottomSheetState extends State<_OtpBottomSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          const Center(
+          Center(
             child: Text(
               "Type your 'icebreaker' given by your customer to start your ride!",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
           const SizedBox(height: 12),
@@ -1491,7 +1464,7 @@ class _OtpBottomSheetState extends State<_OtpBottomSheet> {
             child: Container(
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Colors.green, Colors.greenAccent],
+                  colors: [const Color(0xFF009640), const Color(0xFF009640)],
                 ),
                 borderRadius: BorderRadius.circular(30),
               ),
@@ -1553,7 +1526,7 @@ class _OtpBottomSheetState extends State<_OtpBottomSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -1570,7 +1543,7 @@ class _OtpBottomSheetState extends State<_OtpBottomSheet> {
                         pickup,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF334155), fontSize: 12.5),
+                        style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface, fontSize: 12.5),
                       ),
                     ],
                   ),
@@ -1589,7 +1562,7 @@ class _OtpBottomSheetState extends State<_OtpBottomSheet> {
                     height: 40,
                     width: 40,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
@@ -1610,7 +1583,7 @@ class _OtpBottomSheetState extends State<_OtpBottomSheet> {
                     height: 40,
                     width: 40,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
@@ -1658,7 +1631,7 @@ class _ArrivedBottomSheet extends StatelessWidget {
   });
 
   Widget _circleAction(BuildContext context, IconData icon, String label) {
-    const themeGreen = Color(0xFF22C55E);
+    const themeGreen = Color(0xFF009640);
 
     return InkWell(
       onTap: () {
@@ -1671,7 +1644,7 @@ class _ArrivedBottomSheet extends StatelessWidget {
         height: 40,
         width: 40,
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(999),
         ),
         child: label.toLowerCase() == 'message'
@@ -1708,7 +1681,7 @@ class _ArrivedBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const themeGreen = Color(0xFF22C55E);
+    const themeGreen = Color(0xFF009640);
 
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 280),
@@ -1722,8 +1695,8 @@ class _ArrivedBottomSheet extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [
             BoxShadow(color: Color(0x22000000), blurRadius: 18, offset: Offset(0, -6)),
@@ -1769,7 +1742,7 @@ class _ArrivedBottomSheet extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Colors.black.withOpacity(0.72),
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.72),
                         ),
                       ),
                     ],
@@ -1809,7 +1782,7 @@ class _ArrivedBottomSheet extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),

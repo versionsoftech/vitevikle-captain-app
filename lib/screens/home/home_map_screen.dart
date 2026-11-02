@@ -1,29 +1,30 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:slide_to_act/slide_to_act.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
+import 'package:vite_captain/maps/mappls_geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vite_captain/models/intercity_request.dart';
 import 'package:vite_captain/screens/auth/login_screen.dart';
+import 'package:vite_captain/modules/status/driver_suspended_screen.dart';
 import 'package:vite_captain/screens/full_map_screen.dart';
 import 'package:vite_captain/screens/activity/activity_screen.dart';
-import 'package:vite_captain/screens/home/intercity_ride_map_screen.dart';
 import 'package:vite_captain/screens/home/intercity_bidding_screen.dart';
-import 'package:vite_captain/screens/home/pickup_map_screen.dart';
-import 'package:vite_captain/screens/home/driver_ride_in_progress_screen.dart';
-import 'package:vite_captain/screens/home/navigation_map_screen.dart';
+import 'package:vite_captain/screens/home/share_seats_sheet.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
 import 'package:dio/dio.dart';
@@ -36,12 +37,24 @@ import 'package:vite_captain/services/preference_api.dart';
 import 'package:vite_captain/services/ride_booking_state.dart';
 import 'package:vite_captain/services/parcel_activity_state.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/services/zone_service.dart';
 import 'package:vite_captain/services/service_category_api.dart';
 import 'package:vite_captain/services/vehicle_type_api.dart';
 import 'package:vite_captain/services/vehicles_by_service_api.dart';
 import 'package:vite_captain/screens/notifications_screen.dart';
+import 'package:vite_captain/screens/support_screen.dart';
 import 'package:vite_captain/screens/settings_screen.dart';
 import 'package:vite_captain/services/alert_service.dart';
+import 'package:vite_captain/services/notification_service.dart';
+import 'package:vite_captain/services/offer_inbox.dart';
+import 'package:vite_captain/services/ride_bubble.dart';
+import 'package:vite_captain/maps/open_mappls_navigation.dart';
+import 'package:vite_captain/widgets/ride_otp_sheet.dart';
+import 'package:vite_captain/screens/home/driver_payment_screen.dart';
+import 'package:vite_captain/widgets/ride_request_card.dart';
+import 'package:vite_captain/widgets/request_countdown_ring.dart';
+import 'package:vite_captain/widgets/ride_route_rail.dart';
+import 'package:vite_captain/widgets/send_ride_notification_sheet.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:vite_captain/widgets/payment_received_popup.dart';
@@ -64,7 +77,6 @@ import 'package:vite_captain/providers/driver_status_summary_provider.dart';
 import 'package:vite_captain/providers/document_verification_provider.dart';
 import 'package:vite_captain/controllers/profile_controller.dart';
 import 'package:vite_captain/screens/home/location_selection_screen.dart';
-import 'package:vite_captain/screens/parcel/parcel_map_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vite_captain/screens/intercity/intercity_chat_screen.dart';
 import 'package:vite_captain/services/chat_notification_provider.dart';
@@ -79,17 +91,16 @@ class HomeMapScreen extends StatefulWidget {
 
 class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserver {
   static const String _isOnlinePrefsKey = 'isOnline';
-  static const String _googleApiKey = 'AIzaSyCgfyPk2RQlRS7OTkYGSk2OjOcdbzKzivc';
   static const String _vehicleImageAsset = 'assets/images/Car.png';
   static const String _parcelDutyPrefsKey = 'is_parcel_active';
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final LocationService _locationService = const LocationService();
-  final PlacesService _placesService = const PlacesService(apiKey: _googleApiKey);
-  final PolylinePoints _polylinePoints = PolylinePoints();
-  final Completer<GoogleMapController> _mapController =
-      Completer<GoogleMapController>();
+  final PlacesService _placesService = const PlacesService();
+  final Completer<MapplsViewController> _mapController =
+      Completer<MapplsViewController>();
+  MapplsViewController? _liveMap;
 
   final TextEditingController _pickupController = TextEditingController();
   final TextEditingController _dropController = TextEditingController();
@@ -97,6 +108,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   bool _loadingLocation = true;
   LatLng _cameraTarget = const LatLng(20.5937, 78.9629);
   Set<Marker> _markers = <Marker>{};
+  Set<Marker> _demandMarkers = <Marker>{};
+  int _nearbyRequestCount = 0;
   Set<Polyline> _polylines = <Polyline>{};
   final Map<String, List<LatLng>> _directionsPointCache = <String, List<LatLng>>{};
   String _pickupDropRouteCacheKey = '';
@@ -109,6 +122,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   Timer? _activeRideTimer;
   Timer? _parcelRequestsTimer;
   bool isDialogOpen = false;
+  BuildContext? _offerDialogContext;
+  final Set<String> _etaChosenRideIds = <String>{};
+  Timer? _etaTick;
+  int _etaLeftSeconds = 0;
   bool _isRideAccepted = false;
   final Set<String> _handledRideRequestIds = <String>{};
   final Set<String> _ignoredRideIds = <String>{};
@@ -117,6 +134,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   String? _acceptedRideId;
   String? _lastRideId;
   bool _isUpdatingBid = false;
+  bool _tripBusy = false;
+  bool _otpSheetOpen = false;
+  String? _bubbleSignature;
+  bool _bubbleOn = false;
+  String _accountHold = '';
+  String _serviceState = '';
+  List<String> _zoneServiceIds = const [];
   Map<String, dynamic>? _activeRide;
   bool _parcelDutyOn = false;
   bool _loadingParcelRequests = false;
@@ -129,9 +153,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   List<IntercityRequestModel> _intercityRequests = <IntercityRequestModel>[];
   List<IntercityRequestModel> _myWaitingIntercityRides = <IntercityRequestModel>[];
   List<IntercityRequestModel> _myAcceptedIntercityRides = <IntercityRequestModel>[];
+  Map<String, dynamic>? _seatTrip;
+  List<Map<String, dynamic>> _seatOffers = const [];
+  List<Map<String, dynamic>> _openSeatRequests = const [];
   final Set<String> _seenIntercityRequestIds = <String>{};
   bool _intercityScreenOpening = false;
   int _bottomTabIndex = 0;
+  bool _requestsSheetOpen = true;
+  int _seenIncomingCount = 0;
+  String _selectedIncomingId = '';
+  final Map<String, DateTime> _incomingSeenAt = <String, DateTime>{};
+  final Map<String, GlobalKey> _incomingCardKeys = <String, GlobalKey>{};
+  final ScrollController _incomingListScroll = ScrollController();
+  Timer? _incomingTick;
 
   final Set<String> _pendingIntercityBidIds = <String>{};
   double _speedKmh = 0;
@@ -184,9 +218,22 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
 
   double _walletBalance = 0.0;
   bool _walletBalanceLoading = true;
+  bool _dutyUpdating = false;
+  bool _locationFailed = false;
   String _driverName = '';
   String _driverImageUrl = '';
   int _totalCompletedRides = 0;
+  double _todayEarning = 0;
+  int _todayTrips = 0;
+  String _todayHours = '00:00';
+  double _lastTripEarning = 0;
+  double _weekTotal = 0;
+  List<double> _weekDays = List<double>.filled(7, 0);
+  double _driverRating = 0;
+  int _ratingCount = 0;
+  FlutterTts? _tts;
+  String? _wishSlotStarted;
+  DateTime? _lastExitPrompt;
   int _distanceRequestId = 0;
   String? _lastDistanceKey;
   String? _distanceKm;
@@ -200,12 +247,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       ScaffoldMessenger.of(context).clearSnackBars();
       context.read<DocumentVerificationProvider>().hydrate();
     });
-    _userBasicsFuture = _sessionService.getUserBasics();
+    _userBasicsFuture = _sessionService.getUserBasics(forceRefresh: true).then((data) {
+      final mobile = (data['mobile'] ?? '').trim();
+      final resolved = _firstPersonName({'fullName': data['name'], 'name': data['name']}, mobile);
+      if (resolved.isNotEmpty && mounted && (_driverName.trim().isEmpty || _looksLikePhone(_driverName))) {
+        setState(() => _driverName = resolved);
+      }
+      _maybeSpeakWish(resolved.isNotEmpty ? resolved : _driverName);
+      return data;
+    });
+    OfferInbox.loadIgnored();
     _loadInitialLocation();
     _startDriverTracking();
     _serviceCategoriesFuture = _serviceCategoryApi.fetchServiceCategories();
     _loadWalletBalance();
     _loadDriverProfile();
+    _loadCaptainRating();
+    _loadHomeSummary();
     _loadVehicleFrontImage();
     _vehicleTypesFuture = _vehicleTypeApi.getVehicleTypes();
     _preferencesFuture = _preferenceApi.getPreferences();
@@ -482,12 +540,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               },
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'SOS Alert Sent',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 6),
@@ -511,12 +569,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Status',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -540,12 +598,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Ride Information',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -569,20 +627,20 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Location',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     address.isNotEmpty ? address : 'Location available',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -673,10 +731,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         ),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],
@@ -702,10 +760,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1010,10 +1068,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                         warn
                             ? 'Frequent cancellations may trigger a penalty${duration > 0 ? ' for $duration min' : ''}.'
                             : 'Are you sure you want to cancel this ride?',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -1028,7 +1086,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                         future: const ApiService().getCancellationReasons(type: 'driver'),
                         builder: (ctx, snap) {
                           if (snap.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
+                            return const Center(child: ViteLoader());
                           }
 
                           final payload = snap.data ?? <String, dynamic>{};
@@ -1160,7 +1218,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                   ? const SizedBox(
                                       height: 18,
                                       width: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: ViteLoader(strokeWidth: 2, color: Colors.white),
                                     )
                                   : const Text('Confirm Cancel'),
                             ),
@@ -1591,22 +1649,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: () async {
-        final result = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ParcelMapScreen(parcel: parcel),
-          ),
-        );
-        if (result == null) return;
-        final parcelId = _asTrimmed(parcel['_id'] ?? parcel['id']);
-        if (parcelId.isEmpty) return;
-        if (!mounted) return;
-        setState(() {
-          _ignoredParcelRequestIds.add(parcelId);
-          _liveParcelRequests.removeWhere((e) => _asTrimmed(e['_id'] ?? e['id']) == parcelId);
-        });
-      },
+      onTap: () {},
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         child: Card(
@@ -1617,6 +1660,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text(
+                  'PARCEL DELIVERY',
+                  style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.4),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1647,34 +1695,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                   Text(whenText, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
                 ],
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, color: Color(0xFF369D01), size: 18),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        pickup.isEmpty ? '-' : pickup,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, color: Colors.red, size: 18),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        drop.isEmpty ? '-' : drop,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
+                RideRouteRail(
+                  pickup: pickup.isEmpty ? '-' : pickup,
+                  drop: drop.isEmpty ? '-' : drop,
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -1739,6 +1762,110 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     return 'https://adm.vitevikle.com/$v';
   }
 
+  String _clockFromHours(dynamic raw) {
+    final text = (raw ?? '').toString().trim();
+    final match = RegExp(r'([0-9]*\.?[0-9]+)').firstMatch(text);
+    final hours = match == null ? 0.0 : (double.tryParse(match.group(1)!) ?? 0);
+    if (hours <= 0) return '00:00';
+    final totalMinutes = (hours * 60).round();
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadHomeSummary() async {
+    try {
+      final token = (await _sessionService.getToken() ?? '').trim();
+      if (token.isEmpty) return;
+      final headers = {'Authorization': 'Bearer $token'};
+      final results = await Future.wait([
+        DioClient.dio.get(
+          '$baseUrl/driver-earnings?range=today',
+          options: Options(validateStatus: (_) => true, headers: headers),
+        ),
+        DioClient.dio.get(
+          '$baseUrl/driver/history',
+          options: Options(validateStatus: (_) => true, headers: headers),
+        ),
+      ]);
+      if (!mounted) return;
+      final decoded = results[0].data;
+      setState(() {
+        if (decoded is Map && decoded['status'] == true) {
+          final earn = decoded['today_earning'];
+          _todayEarning = earn is num ? earn.toDouble() : double.tryParse('$earn') ?? 0;
+          final trips = decoded['today_trips'];
+          _todayTrips = trips is num ? trips.toInt() : int.tryParse('${trips ?? ''}') ?? 0;
+          _todayHours = _clockFromHours(decoded['today_login_hours']);
+          final latest = decoded['latest_ride'];
+          if (latest is Map) {
+            final amount = latest['amount'];
+            _lastTripEarning = amount is num ? amount.toDouble() : double.tryParse('$amount') ?? 0;
+          }
+        }
+        _applyWeekHistory(results[1].data);
+      });
+    } catch (_) {}
+  }
+
+  void _applyWeekHistory(dynamic body) {
+    final rows = body is Map && body['data'] is List ? body['data'] as List : const <dynamic>[];
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day).subtract(Duration(days: today.weekday - 1));
+    final days = List<double>.filled(7, 0);
+    var week = 0.0;
+    var sawTrip = false;
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final amountRaw = row['amount'];
+      final amount = amountRaw is num ? amountRaw.toDouble() : double.tryParse('$amountRaw') ?? 0;
+      if (!sawTrip) {
+        _lastTripEarning = amount;
+        sawTrip = true;
+      }
+      final day = _parseHistoryDay('${row['date'] ?? ''}');
+      if (day == null) continue;
+      final index = day.difference(start).inDays;
+      if (index < 0 || index > 6) continue;
+      days[index] += amount;
+      week += amount;
+    }
+    _weekDays = days;
+    _weekTotal = week;
+  }
+
+  DateTime? _parseHistoryDay(String raw) {
+    final parts = raw.split('/');
+    if (parts.length != 3) return null;
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null) return null;
+    return DateTime(year, month, day);
+  }
+
+  String _inr(num value) {
+    final digits = value.round().abs().toString();
+    if (digits.length <= 3) return '₹$digits';
+    final head = digits.substring(0, digits.length - 3);
+    final tail = digits.substring(digits.length - 3);
+    final grouped = StringBuffer();
+    for (var i = 0; i < head.length; i++) {
+      if (i > 0 && (head.length - i) % 2 == 0) grouped.write(',');
+      grouped.write(head[i]);
+    }
+    return '₹$grouped,$tail';
+  }
+
+  double get _dailyGoalAmount {
+    var best = _todayEarning;
+    for (final day in _weekDays) {
+      if (day > best) best = day;
+    }
+    if (best <= 0) return 0;
+    return (best / 100).ceil() * 100;
+  }
+
   Future<void> _loadWalletBalance() async {
     try {
       if (mounted) {
@@ -1789,6 +1916,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     }
   }
 
+  Future<void> _loadZoneServices(String stateName) async {
+    try {
+      final ids = await ZoneService.instance.serviceIdsFor(stateName);
+      if (!mounted) return;
+      setState(() => _zoneServiceIds = ids);
+    } catch (_) {}
+  }
+
   Future<void> _loadDriverProfile() async {
     try {
       final token = (await _sessionService.getToken() ?? '').trim();
@@ -1804,8 +1939,24 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       final ok = resp['success'] == true;
       final data = ok && resp['data'] is Map ? resp['data'] as Map : null;
       if (data == null) return;
-
-      final name = (data['driver_name'] ?? data['name'] ?? data['fullName'] ?? data['driverName'] ?? '').toString().trim();
+      final accountStatus = (data['account_status'] ?? '').toString();
+      if (accountStatus == 'suspended') {
+        _openAccountHold(accountStatus);
+        return;
+      }
+      final address = data['address'];
+      final savedState = address is Map
+          ? (address['state'] ?? data['state'] ?? '').toString().trim()
+          : (data['state'] ?? '').toString().trim();
+      if (mounted) {
+        setState(() {
+          _accountHold = accountStatus == 'under_review' ? 'under_review' : '';
+          _serviceState = savedState;
+        });
+        if (savedState.isNotEmpty) _loadZoneServices(savedState);
+      }
+      final mobile = (data['mobile'] ?? data['phone'] ?? '').toString().trim();
+      final name = _firstPersonName(data, mobile).isNotEmpty ? _firstPersonName(data, mobile) : (_scanPersonName(data) ?? '');
       final image = (data['profile_image'] ?? data['image'] ?? data['avatar'] ?? data['driver_image'] ?? '').toString().trim();
       final ridesRaw = data['total_completed_rides'] ?? data['totalCompletedRides'] ?? data['completedRides'] ?? data['total_trips'] ?? data['totalTrips'];
       final rides = ridesRaw is num ? ridesRaw.toInt() : int.tryParse(ridesRaw?.toString() ?? '') ?? 0;
@@ -1881,8 +2032,157 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         final normalized = _normalizeMaybeUrl(image);
         if (normalized.isNotEmpty) _driverImageUrl = normalized;
         _totalCompletedRides = rides;
+        final ratingRaw = data['rating'] ?? data['avg_rating'] ?? data['average_rating'] ?? data['driver_rating'];
+        final parsedRating = ratingRaw is num ? ratingRaw.toDouble() : double.tryParse('${ratingRaw ?? ''}') ?? 0;
+        if (parsedRating > 0) _driverRating = parsedRating;
+        final countRaw = data['rating_count'] ?? data['review_count'] ?? data['reviews_count'] ?? data['total_reviews'];
+        final parsedCount = countRaw is num ? countRaw.toInt() : int.tryParse('${countRaw ?? ''}') ?? 0;
+        if (parsedCount > 0) _ratingCount = parsedCount;
         _driverVehicleType = vehicleType;
         _driverVehicleTypeId = vehicleTypeId;
+      });
+      await _loadCaptainRating();
+      await _maybeSpeakWish(name.isNotEmpty ? name : _driverName);
+    } catch (_) {}
+  }
+
+  String _wishSlotId() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    var day = DateTime(now.year, now.month, now.day);
+    final String period;
+    if (hour < 5) {
+      period = 'night';
+      day = day.subtract(const Duration(days: 1));
+    } else if (hour < 12) {
+      period = 'morning';
+    } else if (hour < 17) {
+      period = 'afternoon';
+    } else if (hour < 21) {
+      period = 'evening';
+    } else {
+      period = 'night';
+    }
+    final month = day.month.toString().padLeft(2, '0');
+    final date = day.day.toString().padLeft(2, '0');
+    return '${day.year}-$month-$date-$period';
+  }
+
+  Future<void> _maybeSpeakWish(String rawName) async {
+    if (!mounted) return;
+    final name = rawName.trim();
+    if (name.isEmpty || name.toLowerCase() == 'captain' || _looksLikePhone(name)) return;
+    final slot = _wishSlotId();
+    if (_wishSlotStarted == slot) return;
+    _wishSlotStarted = slot;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const key = 'captain_wish_slot';
+      if (prefs.getString(key) == slot) return;
+      final tts = _tts ??= FlutterTts();
+      await tts.setLanguage('en-IN');
+      await tts.setSpeechRate(0.48);
+      await tts.setPitch(1.0);
+      await tts.setVolume(1);
+      try {
+        final voices = await tts.getVoices;
+        if (voices is List) {
+          Map? female;
+          for (final raw in voices) {
+            if (raw is! Map) continue;
+            final voiceName = (raw['name'] ?? '').toString().toLowerCase();
+            final locale = (raw['locale'] ?? '').toString().toLowerCase().replaceAll('_', '-');
+            if (!locale.startsWith('en-in')) continue;
+            final isFemale = voiceName.contains('female') || voiceName.contains('ena') || voiceName.contains('enc');
+            if (isFemale) {
+              female = raw;
+              break;
+            }
+          }
+          if (female != null) {
+            await tts.setVoice({
+              'name': female['name'].toString(),
+              'locale': female['locale'].toString(),
+            });
+          }
+        }
+      } catch (_) {}
+      await tts.speak('${_wishTitle()}, $name. Go online and start the earning.');
+      await prefs.setString(key, slot);
+    } catch (_) {}
+  }
+
+  String _firstPersonName(Map data, String mobile) {
+    const keys = ['fullName', 'full_name', 'driver_name', 'driverName', 'name', 'username'];
+    for (final key in keys) {
+      final value = (data[key] ?? '').toString().trim();
+      if (value.isEmpty || value.toLowerCase() == 'null') continue;
+      if (_looksLikePhone(value) || (mobile.isNotEmpty && value == mobile)) continue;
+      return value;
+    }
+    return '';
+  }
+
+  String? _scanPersonName(Map data) {
+    String? read(dynamic node, int depth) {
+      if (depth > 4 || node is! Map) return null;
+      for (final entry in node.entries) {
+        final key = entry.key.toString().toLowerCase();
+        final value = entry.value;
+        if (value is String && (key.contains('fullname') || key.contains('full_name') || key == 'driver_name' || key == 'drivername' || key == 'name')) {
+          final text = value.trim();
+          if (text.isEmpty || text.toLowerCase() == 'null' || text.toLowerCase() == 'captain') continue;
+          if (_looksLikePhone(text)) continue;
+          if (RegExp(r'[A-Za-z]').hasMatch(text)) return text;
+        }
+        if (value is Map) {
+          final nested = read(value, depth + 1);
+          if (nested != null) return nested;
+        }
+      }
+      return null;
+    }
+
+    return read(data, 0);
+  }
+
+  Future<void> _loadCaptainRating() async {
+    try {
+      final driverId = (await _sessionService.getDriverId() ?? '').trim();
+      if (driverId.isEmpty) return;
+      final token = (await _sessionService.getToken() ?? '').trim();
+      final resp = await DioClient.dio.get(
+        '$baseUrl/get-my-reviews/$driverId',
+        options: Options(
+          validateStatus: (_) => true,
+          headers: {
+            if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+      final body = resp.data;
+      final rows = body is Map && body['data'] is List ? body['data'] as List : const <dynamic>[];
+      final seen = <String>{};
+      var sum = 0.0;
+      var count = 0;
+      for (final row in rows) {
+        if (row is! Map) continue;
+        final role = '${row['role'] ?? ''}'.toLowerCase();
+        final source = '${row['source'] ?? ''}'.toLowerCase();
+        if (role == 'customer' || source == 'rider_reviews') continue;
+        if (role.isNotEmpty && role != 'driver' && source != 'driver_reviews') continue;
+        final id = '${row['_id'] ?? ''}';
+        if (id.isNotEmpty && !seen.add(id)) continue;
+        final raw = row['rating'] ?? row['stars'];
+        final value = raw is num ? raw.toDouble() : double.tryParse('$raw') ?? 0;
+        if (value <= 0) continue;
+        sum += value;
+        count++;
+      }
+      if (!mounted || count == 0) return;
+      setState(() {
+        _driverRating = sum / count;
+        _ratingCount = count;
       });
     } catch (_) {}
   }
@@ -1908,13 +2208,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: Color(0xFF369D01)),
+                ViteLoader(color: Color(0xFF369D01)),
                 SizedBox(height: 10),
                 Text('Accepting Ride...', style: TextStyle(fontWeight: FontWeight.w800)),
               ],
@@ -1938,7 +2238,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Column(
@@ -1978,19 +2278,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     final pickupTime = req.pickupTime.trim();
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => IntercityRideMapScreen(ride: req),
-          ),
-        );
-      },
+      onTap: () {},
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        margin: const EdgeInsets.fromLTRB(4, 8, 8, 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
@@ -2002,6 +2295,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
           Row(
             children: [
@@ -2025,14 +2319,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        Text('₹$offer', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
-                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text('₹$offer', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+                        ),
+                        const SizedBox(width: 6),
                         const Icon(Icons.location_on, size: 14, color: Colors.grey),
-                        const SizedBox(width: 3),
-                        Text(distanceText, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 2),
+                        Flexible(child: Text(distanceText, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 12))),
+                        const SizedBox(width: 6),
                         const Icon(Icons.star, size: 14, color: Colors.orange),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 2),
                         Text(ratingText, style: const TextStyle(fontSize: 12)),
                       ],
                     ),
@@ -2042,20 +2338,26 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
             ],
           ),
           const SizedBox(height: 10),
+          Text(
+            '₹ $offer For ${req.persons} Person${req.persons == 1 ? '' : 's'}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          if (pickupDate.isNotEmpty || pickupTime.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${pickupDate.isNotEmpty ? pickupDate : 'Not scheduled'}${pickupTime.isNotEmpty ? ' · $pickupTime' : ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+            ),
+          ],
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            alignment: WrapAlignment.spaceBetween,
             children: [
-              Text(
-                '₹ $offer For ${req.persons} Person${req.persons == 1 ? '' : 's'}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-              if (pickupDate.isNotEmpty || pickupTime.isNotEmpty)
-                Text(
-                  '${pickupDate.isNotEmpty ? '📅 $pickupDate' : '📅 Not Scheduled'}${pickupDate.isNotEmpty && pickupTime.isNotEmpty ? ' ' : ''}${pickupTime.isNotEmpty ? '🕐 $pickupTime' : '🕐 Not Scheduled'}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
-                ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -2099,48 +2401,41 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          RideRouteRail(
+            pickup: pickup,
+            drop: drop,
+            distanceLabel: req.km > 0 ? '${req.km.toStringAsFixed(1)} km' : null,
+          ),
+          const SizedBox(height: 15),
+          const Row(
             children: [
-              Column(
-                children: [
-                  const Icon(Icons.radio_button_unchecked, size: 16, color: Colors.black54),
-                  Container(height: 25, width: 1, color: Colors.grey.shade400),
-                  const Icon(Icons.location_on, color: Color(0xFF369D01), size: 18),
-                ],
+              ViteLoader(
+                strokeWidth: 2,
+                color: Color(0xFF369D01),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(pickup, style: const TextStyle(fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 8),
-                    Text(drop, style: const TextStyle(fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-                  ],
+                child: Text(
+                  'Waiting for customer response...',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 15),
-          Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFF369D01),
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Waiting for customer response...',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-              ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                side: const BorderSide(color: Color(0xFF009640)),
+                foregroundColor: const Color(0xFF009640),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () => _passIntercityToCaptain(req),
+              child: const Text('Pass to a captain with empty seats', style: TextStyle(fontWeight: FontWeight.w900)),
             ),
           ),
           ],
@@ -2159,19 +2454,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     final ratingText = req.userRating.toStringAsFixed(1);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => IntercityRideMapScreen(ride: req),
-          ),
-        );
-      },
+      onTap: () {},
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 10, offset: Offset(0, 6))],
           border: Border.all(color: const Color(0xFFE6E6E6)),
@@ -2311,16 +2599,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                       'mobile': req.riderPhone,
                     };
 
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PickupMapScreen(
-                          ride: ride,
-                          arrivalMinutes: 5,
-                          googleApiKey: _googleApiKey,
-                        ),
-                      ),
-                    );
+                    if (!mounted) return;
+                    setState(() {
+                      _activeRide = ride;
+                      _acceptedRideId = req.id;
+                      _isRideAccepted = true;
+                    });
+                    _syncRideBubble(ride);
+                    _fetchActiveRide();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF369D01),
@@ -2365,6 +2651,20 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                side: const BorderSide(color: Color(0xFF009640)),
+                foregroundColor: const Color(0xFF009640),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () => _passIntercityToCaptain(req),
+              child: const Text('Pass to a captain with empty seats', style: TextStyle(fontWeight: FontWeight.w900)),
+            ),
+          ),
           ],
         ),
       ),
@@ -2380,9 +2680,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       _hydrateParcelDuty();
     }
 
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _showHomeMini();
+    }
+
     if (state == AppLifecycleState.resumed) {
+      _bubbleOn = false;
+      RideBubble.stop();
+      _bubbleSignature = null;
+      OfferInbox.loadIgnored();
       _loadWalletBalance();
       _loadDriverProfile();
+      _loadHomeSummary();
       if (mounted) {
         setState(() {
           _userBasicsFuture = _sessionService.getUserBasics(forceRefresh: true);
@@ -2527,22 +2836,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       }
 
       Future<void> openIntercityRequest(IntercityRequestModel ride) async {
-        if (_intercityScreenOpening) return;
         if (_seenIntercityRequestIds.contains(ride.id)) return;
         if (!_isStrictVehicleTypeMatch(ride.vehicleType)) return;
         _seenIntercityRequestIds.add(ride.id);
-        _intercityScreenOpening = true;
-        print('Rendering intercity popup: ${ride.id}');
-        try {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => IntercityRideMapScreen(ride: ride),
-            ),
-          );
-        } finally {
-          _intercityScreenOpening = false;
-        }
       }
 
       void scheduleFirstIntercityPopup(List<IntercityRequestModel> rides) {
@@ -2595,6 +2891,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       print('Parsed intercity rides: ${availableAll.length}');
       final available = availableAll
           .where(isAvailableIntercity)
+          .where((ride) => !OfferInbox.ignoredIds.contains(ride.id.trim()))
           .toList();
       
       print('[RIDE_DISPATCH] ========================================');
@@ -2605,13 +2902,42 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       print('Rendered intercity ride count: ${available.length}');
       final waiting = respWaiting['success'] == true ? parseList(respWaiting['data']) : <IntercityRequestModel>[];
       final accepted = respAccepted['success'] == true ? parseList(respAccepted['data']) : <IntercityRequestModel>[];
+      Map<String, dynamic>? seatTrip;
+      var seatOffers = const <Map<String, dynamic>>[];
+      var openSeatRequests = const <Map<String, dynamic>>[];
+      try {
+        final board = await const ApiService().getIntercitySeatBoard(token: token);
+        final data = board['data'];
+        if (board['success'] == true && data is Map) {
+          final trip = data['trip'];
+          seatTrip = trip is Map ? Map<String, dynamic>.from(trip) : null;
+          List<Map<String, dynamic>> asMaps(dynamic raw) {
+            if (raw is! List) return const [];
+            return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          }
+          seatOffers = asMaps(data['offers']);
+          openSeatRequests = asMaps(data['open_requests']);
+        }
+      } catch (_) {}
 
       if (!mounted) return;
       setState(() {
         _intercityRequests = available;
         _myWaitingIntercityRides = waiting;
         _myAcceptedIntercityRides = accepted;
+        _seatTrip = seatTrip;
+        _seatOffers = seatOffers;
+        _openSeatRequests = openSeatRequests;
+        _nearbyRequestCount = OfferInbox.city.value.length + available.length + _liveParcelRequests.length;
       });
+      OfferInbox.setIntercity(available);
+      _publishOfferNotification();
+      if (available.isNotEmpty) {
+        AlertService.startAlert();
+      } else if (OfferInbox.city.value.isEmpty && !isDialogOpen) {
+        AlertService.stopAlert();
+        cancelRideOfferNotification();
+      }
       // Removed auto-opening of intercity map screen to ensure it only opens on explicit user tap.
     } catch (_) {
       return;
@@ -2639,15 +2965,53 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Colors.black87),
+        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
       ),
     );
+  }
+
+  Future<void> _passIntercityToCaptain(IntercityRequestModel req) async {
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ShareSeatsSheet(ride: req),
+    );
+    if (!mounted || sent != true) return;
+    setState(() {
+      _intercityRequests = _intercityRequests.where((r) => r.id != req.id).toList();
+      _myWaitingIntercityRides = _myWaitingIntercityRides.where((r) => r.id != req.id).toList();
+      _myAcceptedIntercityRides = _myAcceptedIntercityRides.where((r) => r.id != req.id).toList();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ride passed to a captain who has empty seats')),
+    );
+  }
+
+  Future<void> _ignoreIntercityOffer(IntercityRequestModel req) async {
+    OfferInbox.ignore(req.id);
+    final left = _intercityRequests.where((r) => r.id != req.id).toList();
+    if (mounted) {
+      setState(() => _intercityRequests = left);
+    }
+    if (left.isEmpty && OfferInbox.city.value.isEmpty) {
+      AlertService.stopAlert();
+    }
+    try {
+      final token = (await _sessionService.getToken() ?? '').trim();
+      if (token.isEmpty) return;
+      await const ApiService().rejectIntercityRequest(
+        token: token,
+        requestId: req.id,
+        reason: 'Ignored',
+      );
+    } catch (_) {}
   }
 
   Widget _buildIntercityRequestCard(IntercityRequestModel req) {
@@ -2666,19 +3030,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     final ratingText = req.userRating.toStringAsFixed(1);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => IntercityRideMapScreen(ride: req),
-          ),
-        );
-      },
+      onTap: () {},
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.fromLTRB(4, 0, 8, 8),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(color: Color(0x1F000000), blurRadius: 10, offset: Offset(0, 6)),
@@ -2688,6 +3045,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+          const Text(
+            'Intercity ride',
+            style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.4),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               CircleAvatar(
@@ -2710,17 +3072,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Text(
-                          '₹$offer',
-                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Color(0xFF369D01)),
+                        Flexible(
+                          child: Text(
+                            '₹$offer',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Color(0xFF369D01)),
+                          ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         const Icon(Icons.location_on, size: 14, color: Colors.grey),
-                        const SizedBox(width: 3),
-                        Text(distanceText, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w700)),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 2),
+                        Flexible(child: Text(distanceText, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w700))),
+                        const SizedBox(width: 6),
                         const Icon(Icons.star, size: 14, color: Colors.orange),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 2),
                         Text(ratingText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                       ],
                     ),
@@ -2729,167 +3095,53 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Text('For ${req.persons} Person${req.persons == 1 ? '' : 's'}', style: const TextStyle(fontWeight: FontWeight.w800)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF369D01).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text('Intercity', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF369D01))),
-              ),
-              if (req.isScheduled)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text('Scheduled', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Colors.orange)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 15,
-            runSpacing: 8,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.route, size: 16, color: Colors.grey),
-                  const SizedBox(width: 5),
-                  Text('${req.km.toStringAsFixed(1)} km', style: const TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                  const SizedBox(width: 5),
-                  Text('${req.timeMinutes} min', style: const TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
-            ],
-          ),
-          if (pickupDate.isNotEmpty || pickupTime.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 15,
-              runSpacing: 8,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                    const SizedBox(width: 5),
-                    Text(pickupDate.isNotEmpty ? pickupDate : 'Not Scheduled', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                    const SizedBox(width: 5),
-                    Text(pickupTime.isNotEmpty ? pickupTime : 'Not Scheduled', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              // REMOVED: Cash label from Intercity ride cards per user request
-              // _intercityChip(payment),
-              _intercityChip(vehicle),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                margin: const EdgeInsets.only(top: 4),
-                decoration: const BoxDecoration(color: Color(0xFF16A34A), shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  pickup,
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
-                  maxLines: 2,
+          Text(
+            '$vehicle · ${req.persons} person${req.persons == 1 ? '' : 's'}${pickupDate.isNotEmpty ? ' · $pickupDate $pickupTime' : ''}',
+            maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 12),
                 ),
-              ),
-            ],
+          const SizedBox(height: 8),
+          RideRouteRail(
+            pickup: pickup,
+            drop: drop,
+            distanceLabel: req.km > 0 ? '${req.km.toStringAsFixed(1)} km' : null,
           ),
           const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                margin: const EdgeInsets.only(top: 4),
-                decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  drop,
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Text(
-                'Ride Placed',
-                style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black87),
-              ),
-              const Spacer(),
-              Flexible(
-                child: Text(
-                  dateText,
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black87),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
           if (_pendingIntercityBidIds.contains(req.id))
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               alignment: Alignment.center,
-              child: const Text(
+              child: Text(
                 'Waiting for customer response',
-                style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black87),
+                style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
               ),
             )
           else
-            Row(
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: const BorderSide(color: Color(0xFF009640)),
+                      foregroundColor: const Color(0xFF009640),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () => _passIntercityToCaptain(req),
+                    child: const Text('Give to a captain on this route', style: TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
@@ -2899,57 +3151,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                       foregroundColor: Colors.black87,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    onPressed: () async {
-                      showDialog<void>(
-                        context: context,
-                        builder: (ctx) {
-                          return AlertDialog(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            title: const Text('Reject Ride'),
-                            content: const Text('Are you sure you want to reject this ride?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                child: const Text('No'),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                onPressed: () async {
-                                  Navigator.pop(ctx);
-                                  try {
-                                    final token = (await _sessionService.getToken() ?? '').trim();
-                                    if (token.isEmpty) return;
-
-                                    final picked = await CancellationReasonSheet.show(
-                                      context: context,
-                                      type: 'driver',
-                                      title: 'Reject Ride',
-                                      confirmText: 'Reject',
-                                    );
-                                    if (picked == null) return;
-
-                                    await const ApiService().rejectIntercityRequest(
-                                      token: token,
-                                      requestId: req.id,
-                                      cancellationReasonId: picked['cancellation_reason_id'],
-                                      reason: picked['reason'],
-                                      note: picked['note'],
-                                    );
-                                  } catch (_) {}
-
-                                  if (!mounted) return;
-                                  setState(() {
-                                    _intercityRequests = _intercityRequests.where((r) => r.id != req.id).toList();
-                                  });
-                                },
-                                child: const Text('Yes', style: TextStyle(color: Colors.white)),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    child: const Text('Reject', style: TextStyle(fontWeight: FontWeight.w900)),
+                    onPressed: () => _ignoreIntercityOffer(req),
+                    child: const Text('Ignore', style: TextStyle(fontWeight: FontWeight.w900)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2993,6 +3196,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                     child: const Text('Accept', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
+              ],
+            ),
               ],
             ),
         ],
@@ -3081,6 +3286,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         _lastRideId = null;
         _ongoingRideScreenOpen = false;
         _ongoingRideOpenedId = '';
+        _bubbleSignature = null;
+        RideBubble.clear();
         _refreshRideRequestsPolling();
         _refreshIntercityRequestsPolling();
         _refreshParcelRequestsPolling();
@@ -3094,9 +3301,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         });
 
         _maybeOpenOngoingRideScreen(next);
+        final acceptedNow = _rideStatusOf(next) == 'accepted' || _rideStatusOf(next) == 'assigned';
+        if (acceptedNow && isDialogOpen) _closeOfferDialog();
         if (!_ongoingRideScreenOpen) {
           _maybeShowRideAcceptedSheet(next);
         }
+        _syncActiveRideMap(next);
       } else {
         final notifyCancel = hadActive &&
             (prevStatus == 'accepted' ||
@@ -3130,6 +3340,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         _lastRideId = null;
         _ongoingRideScreenOpen = false;
         _ongoingRideOpenedId = '';
+        _bubbleSignature = null;
+        RideBubble.clear();
       }
     } catch (_) {
       return;
@@ -3141,61 +3353,40 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   bool _coldStartRideRestore = false;
 
   void _maybeOpenOngoingRideScreen(Map<String, dynamic> ride) {
-    final status = _rideStatusOf(ride);
     final rideId = _rideIdOf(ride);
     if (rideId.isEmpty) return;
-
-    // Open each ride UI at most once per app session (prevents re-push after user pops back).
-    if (_autoOpenedRideIds.contains(rideId)) return;
-    if (_ongoingRideScreenOpen) return;
-
-    Widget? screen;
-    if (status == 'ongoing' || status == 'started') {
-      screen = DriverRideInProgressScreen(
-        ride: ride,
-        googleApiKey: _googleApiKey,
-      );
-    } else if (status == 'arrived') {
-      screen = NavigationMapScreen(
-        ride: ride,
-        googleApiKey: _googleApiKey,
-      );
-    } else if ((status == 'accepted' || status == 'assigned') && _coldStartRideRestore) {
-      // Only auto-open pickup when app relaunches mid-ride; live accepts still use ETA sheet.
-      screen = PickupMapScreen(
-        ride: ride,
-        arrivalMinutes: 5,
-        googleApiKey: _googleApiKey,
-      );
-    } else {
-      return;
-    }
-
-    if (!mounted) return;
-    final key = '$rideId|$status';
-    _autoOpenedRideIds.add(rideId);
-    _ongoingRideScreenOpen = true;
-    _ongoingRideOpenedId = key;
     _acceptedRideId = rideId;
     _isRideAccepted = true;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final nav = Navigator.of(context);
-      if (nav.canPop()) {
         _ongoingRideScreenOpen = false;
+    _syncRideBubble(ride);
+  }
+
+  void _closeOfferDialog() {
+    final ctx = _offerDialogContext;
+    _offerDialogContext = null;
+    if (ctx != null && ctx.mounted) Navigator.of(ctx).pop();
+  }
+
+  void _startEtaCountdown(int minutes) {
+    _etaTick?.cancel();
+    _etaLeftSeconds = minutes <= 0 ? 0 : minutes * 60;
+    if (_etaLeftSeconds <= 0) return;
+    _etaTick = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_etaLeftSeconds <= 1) {
+        timer.cancel();
+        setState(() => _etaLeftSeconds = 0);
         return;
       }
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => screen!),
-      ).whenComplete(() {
-        if (_ongoingRideOpenedId == key) {
-          _ongoingRideScreenOpen = false;
-          _ongoingRideOpenedId = '';
-        }
-      });
+      setState(() => _etaLeftSeconds -= 1);
     });
+  }
+
+  String _runningClock(int seconds) {
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   void _maybeShowRideAcceptedSheet(Map<String, dynamic> ride) {
@@ -3205,6 +3396,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
 
     final rideId = _rideIdOf(ride);
     if (rideId.isEmpty) return;
+    if (_etaChosenRideIds.contains(rideId) || _etaText(ride).isNotEmpty) return;
 
     if (_rideAcceptedSheetOpen && _rideAcceptedSheetRideId == rideId) return;
     if (!mounted) return;
@@ -3218,7 +3410,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
 
       showModalBottomSheet<void>(
         context: context,
-        isScrollControlled: false,
+        isScrollControlled: true,
         isDismissible: false,
         enableDrag: false,
         backgroundColor: Colors.transparent,
@@ -3227,6 +3419,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
             top: false,
             child: _RideAcceptedBottomSheet(
               ride: ride,
+              onPickTime: (minutes) async {
+                _etaChosenRideIds.add(rideId);
+                _startEtaCountdown(minutes);
+                try {
+                  await const ApiService().setRideEta(rideId: rideId, etaMinutes: minutes);
+                } catch (_) {}
+              },
               onCancel: () async {
                 if (context.mounted) {
                   Navigator.pop(context);
@@ -3256,12 +3455,34 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     _pingTimer = null;
   }
 
+  void _openAccountHold(String status) {
+    if (status == 'under_review') {
+      if (mounted) setState(() => _accountHold = 'under_review');
+      return;
+    }
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const DriverSuspendedScreen()),
+      (route) => false,
+    );
+  }
+
   Future<void> _sendPing() async {
-    if (!_isOnline) return;
     try {
       final token = (await _sessionService.getToken() ?? '').trim();
       if (token.isEmpty) return;
-      await const ApiService().pingDriver(token: token);
+      final res = await const ApiService().pingDriver(token: token);
+      final accountStatus = (res['account_status'] ?? '').toString();
+      if (accountStatus == 'suspended') {
+        _openAccountHold(accountStatus);
+      } else if (accountStatus == 'under_review') {
+        if (mounted && _accountHold != 'under_review') {
+          setState(() => _accountHold = 'under_review');
+        }
+      } else if (_accountHold.isNotEmpty && mounted) {
+        setState(() => _accountHold = '');
+      }
     } catch (_) {}
   }
 
@@ -3279,6 +3500,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         _isOnline = local!;
       });
       _refreshHeartbeat();
+      if (local == true) AlertService.startDutyWatch();
     }
 
     try {
@@ -3302,6 +3524,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         setState(() {
           _isOnline = backendIsOnline;
         });
+      }
+      if (backendIsOnline) {
+        AlertService.startDutyWatch();
+      } else {
+        AlertService.stopDutyWatch();
       }
       _refreshHeartbeat();
       try {
@@ -3331,6 +3558,459 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     }
     _refreshParcelRequestsPolling();
     await _checkApprovalStatus();
+  }
+
+  String _pointAddress(dynamic node) {
+    if (node is Map) {
+      final address = (node['address'] ?? node['name'] ?? node['formatted_address'] ?? '').toString().trim();
+      if (address.isNotEmpty) return address;
+    }
+    final text = (node ?? '').toString().trim();
+    if (text.startsWith('{') || text.startsWith('[')) return '';
+    return text;
+  }
+
+  String _personName(Map<String, dynamic> ride) {
+    final user = ride['user'];
+    final fromUser = user is Map ? (user['name'] ?? user['full_name'] ?? user['fullName'] ?? '').toString().trim() : '';
+    final name = (ride['user_name'] ?? ride['userName'] ?? ride['customerName'] ?? ride['name'] ?? fromUser).toString().trim();
+    return name.isEmpty ? 'Customer' : name;
+  }
+
+  String _personPhone(Map<String, dynamic> ride) {
+    final user = ride['user'];
+    final fromUser = user is Map ? (user['phone'] ?? user['mobile'] ?? user['contact'] ?? '').toString().trim() : '';
+    return (ride['phone'] ?? ride['mobile'] ?? ride['user_phone'] ?? ride['userPhone'] ?? fromUser).toString().trim();
+  }
+
+  String _etaText(Map<String, dynamic> ride) {
+    final raw = (ride['eta'] ?? ride['arrival_time'] ?? ride['arrivalTime'] ?? ride['time'] ?? ride['duration'] ?? '').toString().trim();
+    if (raw.isEmpty) return '';
+    final lower = raw.toLowerCase();
+    if (lower.contains('min') || lower.contains(':')) return raw;
+    return '$raw min';
+  }
+
+  LatLng? _latLngOf(dynamic node) {
+    if (node is! Map) return null;
+    final latRaw = node['lat'] ?? node['latitude'];
+    final lngRaw = node['lng'] ?? node['lon'] ?? node['longitude'];
+    final lat = latRaw is num ? latRaw.toDouble() : double.tryParse('${latRaw ?? ''}');
+    final lng = lngRaw is num ? lngRaw.toDouble() : double.tryParse('${lngRaw ?? ''}');
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
+  void _showHomeMini() {
+    final ride = _activeRide;
+    if (ride == null) return;
+    final status = _rideStatusOf(ride);
+    final live = status == 'accepted' ||
+        status == 'assigned' ||
+        status == 'arrived' ||
+        status == 'waiting_user_confirmation' ||
+        status == 'ongoing' ||
+        status == 'started' ||
+        status == 'in_progress';
+    if (!live) return;
+    _bubbleSignature = null;
+    _syncRideBubble(ride);
+  }
+
+  void _publishOfferNotification() {
+    final city = OfferInbox.city.value;
+    final intercity = OfferInbox.intercity.value;
+    if (city.isEmpty && intercity.isEmpty) {
+      if (!isDialogOpen) cancelRideOfferNotification();
+      return;
+    }
+    if (city.isNotEmpty) {
+      final ride = city.first;
+      final id = (ride['_id'] ?? ride['id'] ?? '').toString().trim();
+      final pickup = _pointAddress(ride['pickup'] ?? ride['pickup_address']);
+      final drop = _pointAddress(ride['drop'] ?? ride['drop_address']);
+      final fareRaw = ride['fare'] ?? ride['amount'] ?? ride['price'];
+      final fare = fareRaw is num ? fareRaw.toDouble() : (double.tryParse('${fareRaw ?? ''}') ?? 0);
+      final name = (ride['user_name'] ?? ride['customerName'] ?? ride['name'] ?? 'Rider').toString().trim();
+      showRideOfferNotification(
+        id: id,
+        kind: 'city',
+        title: name.isEmpty ? 'New ride request' : name,
+        body: '${pickup.isEmpty ? 'Pickup' : pickup}\n${drop.isEmpty ? 'Drop' : drop}',
+        fare: fare,
+      );
+      return;
+    }
+    final ride = intercity.first;
+    final fare = ride.bidPrice > 0 ? ride.bidPrice : ride.price;
+    showRideOfferNotification(
+      id: ride.id,
+      kind: 'intercity',
+      title: ride.riderName.trim().isEmpty ? 'Intercity ride' : ride.riderName.trim(),
+      body: '${ride.pickup}\n${ride.drop}',
+      fare: fare,
+    );
+  }
+
+  void _syncRideBubble(Map<String, dynamic> ride) {
+    final pickup = _pointAddress(ride['pickup'] ?? ride['pickup_address'] ?? ride['pickupAddress']);
+    final drop = _pointAddress(ride['drop'] ?? ride['drop_address'] ?? ride['dropAddress']);
+    final eta = _etaText(ride);
+    final status = _rideStatusOf(ride);
+    final live = status == 'accepted' ||
+        status == 'assigned' ||
+        status == 'arrived' ||
+        status == 'waiting_user_confirmation' ||
+        status == 'ongoing' ||
+        status == 'started' ||
+        status == 'in_progress';
+    if (!live) {
+      _bubbleOn = false;
+      _bubbleSignature = null;
+      RideBubble.clear();
+      return;
+    }
+    final toDrop = status == 'ongoing' || status == 'started' || status == 'in_progress';
+    final heading = toDrop ? 'Head to drop' : 'Head to pickup';
+    final place = toDrop ? drop : pickup;
+    final target = toDrop
+        ? (_latLngOf(ride['drop']) ?? _latLngOf(ride['drop_location']) ?? _latLngOf(ride['destination']))
+        : (_latLngOf(ride['pickup']) ?? _latLngOf(ride['pickup_location']));
+    final here = _driverLatLng;
+    final body = place.isEmpty ? 'Follow the route' : place;
+    RideBubble.prepare(
+      title: heading,
+      body: body,
+      eta: eta,
+      lat: here?.latitude,
+      lng: here?.longitude,
+      targetLat: target?.latitude,
+      targetLng: target?.longitude,
+    );
+    if (_isInForeground) return;
+    final signature = '$heading|$place|$eta';
+    if (_bubbleSignature == signature && _bubbleOn) {
+      RideBubble.move(
+        title: heading,
+        body: body,
+        lat: here?.latitude,
+        lng: here?.longitude,
+        targetLat: target?.latitude,
+        targetLng: target?.longitude,
+      );
+      return;
+    }
+    _bubbleSignature = signature;
+    _bubbleOn = true;
+    RideBubble.start(
+      title: heading,
+      body: body,
+      pickup: pickup,
+      drop: drop,
+      eta: eta.isEmpty ? '' : eta,
+      lat: here?.latitude,
+      lng: here?.longitude,
+      targetLat: target?.latitude,
+      targetLng: target?.longitude,
+    );
+  }
+
+  Future<void> _navigateForRide(Map<String, dynamic> ride, {required bool toDrop}) async {
+    final node = toDrop ? (ride['drop'] ?? ride['destination']) : (ride['pickup'] ?? ride['pickup_location']);
+    final address = _pointAddress(node ?? (toDrop ? ride['drop_address'] : ride['pickup_address']));
+    final point = _latLngOf(node);
+    if (point != null) {
+      await openMapplsNavigation(point);
+      return;
+    }
+    await openMapplsPlace(address);
+  }
+
+  Future<void> _runTripAction(Future<void> Function() action) async {
+    if (_tripBusy) return;
+    setState(() => _tripBusy = true);
+    try {
+      await action();
+      await _fetchActiveRide();
+    } finally {
+      if (mounted) setState(() => _tripBusy = false);
+    }
+  }
+
+  Future<void> _playTripTick() async {
+    try {
+      await _togglePlayer.stop();
+      await _togglePlayer.setVolume(0.5);
+      await _togglePlayer.play(AssetSource('sounds/tick.wav'));
+    } catch (_) {}
+  }
+
+  Future<void> _askRideOtp(Map<String, dynamic> ride) async {
+    final rideId = _rideIdOf(ride);
+    if (rideId.isEmpty || !mounted) return;
+    setState(() => _otpSheetOpen = true);
+    final started = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => RideOtpSheet(rideId: rideId),
+    );
+    if (mounted) setState(() => _otpSheetOpen = false);
+    if (started != true || !mounted) return;
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    await _fetchActiveRide();
+  }
+
+  Future<void> _confirmTripReceived(Map<String, dynamic> ride) async {
+    final rideId = _rideIdOf(ride);
+    if (rideId.isEmpty) return;
+    final token = (await _sessionService.getToken() ?? '').trim();
+    final method = _ridePaymentMethodOf(ride);
+    final rideType = (ride['ride_type'] ?? ride['rideType'] ?? 'normal').toString().trim();
+    final res = method == 'wallet'
+        ? await const ApiService().walletReceivedRide(rideId: rideId, rideType: rideType.isEmpty ? 'normal' : rideType)
+        : await const ApiService().confirmCashReceived(rideId: rideId, token: token, rideType: rideType.isEmpty ? 'normal' : rideType);
+    if (!mounted) return;
+    if (res['success'] != true) {
+      final rawMsg = (res['message'] ?? 'Could not confirm payment').toString();
+      final lowerMsg = rawMsg.toLowerCase();
+      final msg = (rawMsg.trim().isEmpty || lowerMsg.contains('<!doctype') || lowerMsg.contains('<html') || lowerMsg.contains('cannot post'))
+          ? 'Could not confirm the payment. Please try again.'
+          : rawMsg;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+      return;
+    }
+    setState(() {
+      _activeRide = null;
+      _isRideAccepted = false;
+      _polylines = <Polyline>{};
+    });
+    _acceptedRideId = null;
+    RideBubble.clear();
+    await _fetchActiveRide();
+  }
+
+  Widget _activeTripCard(Map<String, dynamic> ride) {
+    const green = Color(0xFF009640);
+    final status = _rideStatusOf(ride);
+    final pickup = _pointAddress(ride['pickup'] ?? ride['pickup_address'] ?? ride['pickupAddress']);
+    final drop = _pointAddress(ride['drop'] ?? ride['drop_address'] ?? ride['dropAddress']);
+    final name = _personName(ride);
+    final eta = _etaText(ride);
+    final fare = _rideFareOf(ride);
+    final goingToDrop = status == 'ongoing' || status == 'started' || status == 'in_progress';
+    final atPickup = status == 'arrived' || status == 'waiting_user_confirmation';
+    final paying = _isCompletedRideStatus(status);
+    final title = paying
+        ? 'Collect payment'
+        : goingToDrop
+            ? 'Ride in progress'
+            : atPickup
+                ? 'At pickup'
+                : 'Heading to pickup';
+    final action = paying
+        ? 'Payment received'
+        : goingToDrop
+            ? 'End ride'
+            : atPickup
+                ? 'Start ride'
+                : "I've arrived";
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: Material(
+          color: Theme.of(context).colorScheme.surface,
+          elevation: 14,
+          shadowColor: Colors.black26,
+          borderRadius: BorderRadius.circular(22),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.directions_car_filled_rounded, color: green, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
+                          Text(name, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Material(
+                      color: const Color(0xFF4038FF).withValues(alpha: 0.12),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => showSendRideNotificationSheet(context, ride),
+                        child: const SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Icon(Icons.notifications_rounded, color: Color(0xFF4038FF), size: 18),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_etaLeftSeconds > 0)
+                      Text(_runningClock(_etaLeftSeconds), style: const TextStyle(color: green, fontWeight: FontWeight.w900, fontSize: 13))
+                    else if (eta.isNotEmpty)
+                      Text(eta, style: const TextStyle(color: green, fontWeight: FontWeight.w900, fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _tripStop(color: green, label: 'Pickup', value: pickup.isEmpty ? 'Pickup location' : pickup),
+                const SizedBox(height: 8),
+                _tripStop(color: const Color(0xFFEF4444), label: 'Drop', value: drop.isEmpty ? 'Drop location' : drop),
+                if (fare > 0) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text('Fare', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      Text('₹${fare.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _callNumber(_personPhone(ride)),
+                        icon: const Icon(Icons.call_rounded, size: 18),
+                        label: const Text('Call', style: TextStyle(fontWeight: FontWeight.w800)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: green,
+                          side: const BorderSide(color: green),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _navigateForRide(ride, toDrop: goingToDrop || paying),
+                        icon: const Icon(Icons.navigation_rounded, size: 18),
+                        label: const Text('Navigate', style: TextStyle(fontWeight: FontWeight.w800)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF111827),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 56,
+                  width: double.infinity,
+                  child: _tripBusy
+                      ? const Center(child: SizedBox(width: 22, height: 22, child: ViteLoader(strokeWidth: 2, color: green)))
+                      : SlideAction(
+                          key: ValueKey('home-trip-slide-$action'),
+                          text: goingToDrop ? 'Swipe to end ride' : action,
+                          textStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+                          outerColor: goingToDrop ? const Color(0xFFEF4444) : green,
+                          innerColor: Colors.white,
+                          sliderButtonIcon: Icon(
+                            goingToDrop ? Icons.directions_bike : Icons.double_arrow_rounded,
+                            color: goingToDrop ? const Color(0xFFEF4444) : green,
+                          ),
+                          elevation: 0,
+                          onSubmit: () async {
+                            await _playTripTick();
+                            final rideId = _rideIdOf(ride);
+                            final driverId = _driverId.trim();
+                            if (rideId.isEmpty || driverId.isEmpty) return;
+                            if (paying) {
+                              await _confirmTripReceived(ride);
+                              return;
+                            }
+                            if (atPickup) {
+                              await _askRideOtp(ride);
+                              return;
+                            }
+                            await _runTripAction(() async {
+                              if (goingToDrop) {
+                                final token = (await _sessionService.getToken() ?? '').trim();
+                                final res = await const ApiService().completeRide(
+                                  token: token,
+                                  rideRequestId: rideId,
+                                  driverId: driverId,
+                                );
+                                if (!mounted) return;
+                                final rideNode = res['ride'];
+                                final apiStatus = (res['status'] ?? (rideNode is Map ? rideNode['status'] : null) ?? '').toString().trim().toUpperCase();
+                                final ok = res['success'] == true || apiStatus == 'COMPLETED' || (res['message'] ?? '').toString().toLowerCase().contains('success');
+                                if (!ok) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text((res['message'] ?? 'Could not end the ride').toString())),
+                                  );
+                                  return;
+                                }
+                                final extra = rideNode is Map ? Map<String, dynamic>.from(rideNode) : <String, dynamic>{};
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => DriverPaymentScreen(ride: {
+                                      ...ride,
+                                      ...extra,
+                                    }),
+                                  ),
+                                );
+                                return;
+                              }
+                              await const ApiService().driverArrived(rideId: rideId, driverId: driverId);
+                            });
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tripStop({required Color color, required String label, required String value}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Theme.of(context).colorScheme.onSurface)),
+              Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600, fontSize: 12)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   String _rideStatusOf(Map<String, dynamic> ride) {
@@ -3430,13 +4110,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       final data = resp['rides'];
       if (data is! List) return;
 
-      Map<String, dynamic>? next;
+      final matches = <Map<String, dynamic>>[];
       for (final item in data) {
         if (item is! Map) continue;
         final id = (item['_id'] ?? item['id'] ?? item['ride_id'] ?? item['rideId'] ?? item['rideRequestId'] ?? '').toString();
         if (id.trim().isEmpty) continue;
         if (_acceptedRideId != null && _acceptedRideId == id.trim()) continue;
-        if (_ignoredRideIds.contains(id.trim())) continue;
+        if (_ignoredRideIds.contains(id.trim()) || OfferInbox.ignoredIds.contains(id.trim())) continue;
         if (_handledRideRequestIds.contains(id)) continue;
 
         final status = (item['status'] ?? '').toString().trim().toLowerCase();
@@ -3444,11 +4124,29 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
 
         if (!_isStrictVehicleTypeMatch(_requestVehicleFromMap(Map<String, dynamic>.from(item)))) continue;
 
-        next = Map<String, dynamic>.from(item);
-        break;
+        matches.add(Map<String, dynamic>.from(item));
       }
 
-      if (next == null) return;
+      if (mounted) {
+        setState(() {
+          _nearbyRequestCount = matches.length + _liveParcelRequests.length + _intercityRequests.length;
+          _demandMarkers = _demandMarkersFor(matches);
+          if (_driverLatLng != null) {
+            _markers = _markersWithDriver(_driverLatLng!);
+          }
+        });
+      }
+
+      OfferInbox.setCity(matches);
+      _publishOfferNotification();
+      if (matches.isEmpty) {
+        if (_intercityRequests.isEmpty && !isDialogOpen) {
+          AlertService.stopAlert();
+        }
+        return;
+      }
+      if (_activeRide != null) return;
+      final next = matches.first;
 
       final rideRequestId = (next['_id'] ?? next['id'] ?? '').toString();
       if (rideRequestId.trim().isEmpty) return;
@@ -3500,35 +4198,96 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     final pickupLatLng = parseLatLng(pickup);
     final dropLatLng = parseLatLng(drop);
 
+    double kmBetween(LatLng a, LatLng b) {
+      final dLat = (b.latitude - a.latitude) * pi / 180;
+      final dLng = (b.longitude - a.longitude) * pi / 180;
+      final h = sin(dLat / 2) * sin(dLat / 2) + cos(a.latitude * pi / 180) * cos(b.latitude * pi / 180) * sin(dLng / 2) * sin(dLng / 2);
+      return 6371 * 2 * atan2(sqrt(h), sqrt(1 - h));
+    }
+
     final fareValue = request['fare'];
     final fare = fareValue is num ? fareValue.round() : int.tryParse(fareValue?.toString() ?? '') ?? 0;
     final customerName = (request['user_name'] ?? request['customerName'] ?? request['userName'] ?? request['name'] ?? 'Customer')
         .toString()
         .trim();
-    final ratingValue = request['rating'];
-    final rating = ratingValue is num
-        ? ratingValue.toStringAsFixed(1)
-        : (double.tryParse(ratingValue?.toString() ?? '')?.toStringAsFixed(1) ?? '4.5');
-    final customerImage = (request['user_image'] ?? request['customerImage'] ?? request['image'] ?? '')
+    final userNode = request['user'];
+    final userPhoto = userNode is Map
+        ? (userNode['user_image'] ?? userNode['profileImage'] ?? userNode['profile_image'] ?? userNode['image'] ?? userNode['photo'] ?? userNode['avatar'] ?? '')
+        : '';
+    final customerImage = (request['customerImage'] ??
+            request['user_image'] ??
+            request['userImage'] ??
+            request['profile_image'] ??
+            request['profileImage'] ??
+            request['photo'] ??
+            request['avatar'] ??
+            request['image'] ??
+            userPhoto)
         .toString()
         .trim();
 
     final distanceValue = request['distance'] ?? request['distanceKm'] ?? request['totalDistance'];
     final timeValue = request['time'] ?? request['duration'] ?? request['durationMins'];
-    final distanceText = distanceValue == null || distanceValue.toString().trim().isEmpty
-        ? '--'
-        : distanceValue.toString().trim();
-    final timeText = timeValue == null || timeValue.toString().trim().isEmpty
-        ? '--'
-        : timeValue.toString().trim();
+    final parsedDistance = distanceValue is num ? distanceValue.toDouble() : double.tryParse('${distanceValue ?? ''}');
+    final routeKm = (parsedDistance != null && parsedDistance > 0.05)
+        ? parsedDistance
+        : (pickupLatLng != null && dropLatLng != null ? kmBetween(pickupLatLng, dropLatLng) : 0.0);
+    final distanceText = routeKm > 0.05 ? routeKm.toStringAsFixed(routeKm < 10 ? 1 : 0) : '';
+    final parsedTime = timeValue is num ? timeValue.toDouble() : double.tryParse('${timeValue ?? ''}');
+    final timeText = (parsedTime != null && parsedTime > 0)
+        ? parsedTime.round().toString()
+        : (routeKm > 0.05 ? max(1, (routeKm / 25 * 60).round()).toString() : '');
+    final pickupRaw = (request['pickup_distance'] ?? request['pickupDistance'] ?? '').toString().trim();
+    final pickupParsed = double.tryParse(pickupRaw.replaceAll(RegExp(r'[^0-9.]'), ''));
+    final pickupKm = (pickupParsed != null && pickupParsed > 0.05)
+        ? pickupParsed.toStringAsFixed(pickupParsed < 10 ? 1 : 0)
+        : (_driverLatLng != null && pickupLatLng != null
+            ? kmBetween(_driverLatLng!, pickupLatLng).toStringAsFixed(1)
+            : '');
 
     isDialogOpen = true;
     try {
       AlertService.startAlert();
+      final ratingRaw = request['user_rating'] ?? request['rating'] ?? (userNode is Map ? userNode['rating'] : null);
+      final reviewRaw = request['review'] ?? request['reviews'] ?? request['rating_count'] ?? (userNode is Map ? userNode['review'] : null);
+      final rating = ratingRaw is num ? ratingRaw.toDouble() : double.tryParse('${ratingRaw ?? ''}') ?? 0;
+      final reviews = reviewRaw is num ? reviewRaw.toInt() : int.tryParse('${reviewRaw ?? ''}') ?? 0;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
+        barrierColor: const Color(0x66000000),
         builder: (dialogContext) {
+          _offerDialogContext = dialogContext;
+          return RideRequestCard(
+            customerName: customerName == 'Customer' ? '' : customerName,
+            customerImage: customerImage,
+            pickup: pickupAddress.isEmpty ? 'Pickup location' : pickupAddress,
+            drop: dropAddress.isEmpty ? 'Drop location' : dropAddress,
+            fare: fare,
+            seconds: 60,
+            pickupDistance: pickupKm,
+            dropDistance: distanceText,
+            duration: timeText,
+            rating: rating,
+            reviews: reviews,
+            onAccept: (bid) async {
+              final ok = await _placeBidAndClose(
+                rideRequestId: rideRequestId,
+                price: bid <= 0 ? 1 : bid,
+                request: request,
+              );
+              await AlertService.stopAlert();
+              return ok;
+            },
+            onWaitFinished: () async {
+              _closeOfferDialog();
+            },
+            onReject: () async {
+              await AlertService.stopAlert();
+              _closeOfferDialog();
+            },
+          );
+          // ignore: dead_code
           int offerPrice = fare;
           const themeGreen = Color(0xFF1FB354);
           bool isOfferOpen = false;
@@ -3575,7 +4334,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                       padding: const EdgeInsets.all(16),
                       margin: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: const [
                           BoxShadow(
@@ -3631,7 +4390,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                               children: [
                                                 const Icon(Icons.star, size: 14, color: Colors.orange),
                                                 const SizedBox(width: 4),
-                                                Text(rating),
+                                                const Text(''),
                                               ],
                                             ),
                                           ],
@@ -3646,7 +4405,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                                 builder: (_) => FullMapScreen(
                                                   pickupLatLng: pickupLatLng!,
                                                   destinationLatLng: dropLatLng!,
-                                                  apiKey: _googleApiKey,
                                                 ),
                                               ),
                                             );
@@ -3748,10 +4506,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                                         maxLines: 1,
                                                         softWrap: false,
                                                         overflow: TextOverflow.visible,
-                                                        style: const TextStyle(
+                                                        style: TextStyle(
                                                           fontSize: 18,
                                                           fontWeight: FontWeight.bold,
-                                                          color: Colors.black,
+                                                          color: Theme.of(context).colorScheme.onSurface,
                                                         ),
                                                       ),
                                                     ),
@@ -3962,7 +4720,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                                   fit: StackFit.expand,
                                                   children: [
                                                     Container(
-                                                      color: const Color(0xFFE8F5E9),
+                                                      color: Theme.of(context).colorScheme.surface,
                                                     ),
                                                     Center(
                                                       child: Text(
@@ -4000,7 +4758,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                                               ? const SizedBox(
                                                                   width: 22,
                                                                   height: 22,
-                                                                  child: CircularProgressIndicator(
+                                                                  child: ViteLoader(
                                                                     strokeWidth: 2.4,
                                                                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                                                   ),
@@ -4047,7 +4805,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                                   fit: StackFit.expand,
                                                   children: [
                                                     Container(
-                                                      color: const Color(0xFFFFEBEE),
+                                                      color: Theme.of(context).colorScheme.surface,
                                                     ),
                                                     Align(
                                                       alignment: Alignment.centerLeft,
@@ -4163,20 +4921,45 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     }
 
     final normalizedRideId = rideRequestId.trim();
-    _acceptedRideId = normalizedRideId;
+    final extraCityRides = AppConfig.intRideSetting('city_rides_while_ongoing', 0);
+    final keepingCurrentTrip = _activeRide != null;
+    final currentStatus = keepingCurrentTrip ? _rideStatusOf(_activeRide!) : '';
+    const cityStatuses = {
+      'accepted',
+      'assigned',
+      'arrived',
+      'started',
+      'ongoing',
+      'in_progress',
+      'waiting_user_confirmation',
+    };
+    final onCityRide = cityStatuses.contains(currentStatus);
+    if (onCityRide && extraCityRides <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Finish this city ride before accepting another.'),
+          ),
+        );
+      }
+      return false;
+    }
+
     _ignoredRideIds.add(normalizedRideId);
     _handledRideRequestIds.add(normalizedRideId);
+    OfferInbox.hide(normalizedRideId);
+    OfferInbox.ignore(normalizedRideId);
     _isUpdatingBid = true;
+      if (!keepingCurrentTrip) {
+        _acceptedRideId = normalizedRideId;
     if (mounted) {
       setState(() {
         _isRideAccepted = true;
       });
     } else {
       _isRideAccepted = true;
+        }
     }
-
-    // Stop polling new ride requests once accepted is in progress.
-    _stopRideRequestsPolling();
 
     bool ok = false;
     String failMessage = '';
@@ -4193,7 +4976,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       if (!ok) {
         failMessage = (resp['message'] ?? '').toString();
       }
-      if (ok) {
+      if (ok && (!keepingCurrentTrip || onCityRide)) {
         await _fetchActiveRide();
       }
     } catch (e) {
@@ -4205,10 +4988,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     }
 
     if (!ok) {
-      // Accept failed: allow popup again.
-      _acceptedRideId = null;
       _ignoredRideIds.remove(normalizedRideId);
       _handledRideRequestIds.remove(normalizedRideId);
+      OfferInbox.release(normalizedRideId);
+      if (!keepingCurrentTrip) {
+        _acceptedRideId = null;
       if (mounted) {
         setState(() {
           _isRideAccepted = false;
@@ -4217,6 +5001,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         _isRideAccepted = false;
       }
       _refreshRideRequestsPolling();
+      }
 
       if (mounted && isWalletInsufficientMessage(failMessage)) {
         await showWalletInsufficientDialog(context, message: failMessage);
@@ -4227,6 +5012,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         );
       }
       return false;
+    }
+
+    if (keepingCurrentTrip && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('City ride saved. It opens after this trip ends.')),
+      );
     }
 
     return true;
@@ -4275,16 +5066,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   }
 
   Future<void> _playToggleSound(bool isOnline) async {
+    if (!isOnline) return;
     try {
-      if (isOnline) {
-        await _togglePlayer.play(AssetSource('sounds/online.mp3'));
-      } else {
-        await _togglePlayer.play(AssetSource('sounds/offline.mp3'));
-      }
-    } catch (_) {
-      // fallback: play a simple system click if assets are missing
-      SystemSound.play(SystemSoundType.click);
-    }
+      await _togglePlayer.stop();
+      await _togglePlayer.setVolume(0.45);
+      await _togglePlayer.play(AssetSource('sounds/tick.wav'));
+    } catch (_) {}
   }
 
   Future<void> _handleLogoutTap() async {
@@ -4305,6 +5092,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   }
 
   Future<void> _toggleStatus(bool value) async {
+    if (value && _accountHold == 'under_review') {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your account is under review. You can go online after support resolves it.'),
+          backgroundColor: Color(0xFFE53935),
+        ),
+      );
+      return;
+    }
     if (value) {
       final driverId = _driverId.trim().isNotEmpty
           ? _driverId.trim()
@@ -4347,8 +5144,48 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     }
 
     if (!mounted) return;
+    if (_activeRide != null && !value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Finish the active trip before going offline'),
+          backgroundColor: Color(0xFFE53935),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _dutyUpdating = true);
+    var confirmed = false;
+    var failMessage = 'Could not update duty status. Check your connection.';
+    try {
+      final token = (await _sessionService.getToken() ?? '').trim();
+      if (token.isEmpty) {
+        failMessage = 'Please login again.';
+      } else {
+        final res = await const ApiService().updateDriverStatus(token: token, isOnline: value);
+        confirmed = res['success'] == true;
+        if (!confirmed && (res['message'] ?? '').toString().trim().isNotEmpty) {
+          failMessage = res['message'].toString();
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    if (!confirmed) {
+      setState(() => _dutyUpdating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failMessage), backgroundColor: const Color(0xFFE53935)),
+      );
+      return;
+    }
+
     setState(() {
+      _dutyUpdating = false;
       _isOnline = value;
+      if (!value) {
+        _nearbyRequestCount = 0;
+        _demandMarkers = <Marker>{};
+      }
     });
 
     try {
@@ -4359,16 +5196,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     _refreshHeartbeat();
     _refreshParcelRequestsPolling();
 
-    // Sync ON DUTY / OFF DUTY to backend (isOnline + lastSeenAt)
-    try {
-      final token = (await _sessionService.getToken() ?? '').trim();
-      if (token.isNotEmpty) {
-        await const ApiService().updateDriverStatus(token: token, isOnline: value);
-      }
-    } catch (_) {}
-
-    HapticFeedback.mediumImpact();
     _playToggleSound(value);
+    if (value) {
+      AlertService.startDutyWatch();
+    } else {
+      AlertService.stopAlert();
+      AlertService.stopDutyWatch();
+    }
     _showStatusMessage(value);
   }
 
@@ -4402,7 +5236,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(color: Color(0x1F000000), blurRadius: 8, offset: Offset(0, 3)),
@@ -4462,19 +5296,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                   children: [
                     Text(
                       'Hi, $name',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       "You've completed ${_totalCompletedRides} trips",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -4484,8 +5318,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               Container(
                 width: 60,
                 height: 60,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(color: Color(0x1F000000), blurRadius: 10, offset: Offset(0, 4)),
@@ -4610,7 +5444,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 6)),
@@ -4740,8 +5574,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       return Container(
         width: 40,
         height: 40,
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(color: Color(0x1F000000), blurRadius: 6, offset: Offset(0, 3)),
@@ -4750,7 +5584,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         child: IconButton(
           padding: EdgeInsets.zero,
           iconSize: 20,
-          icon: Icon(icon, color: Colors.black87),
+          icon: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
           onPressed: onPressed,
         ),
       );
@@ -4823,7 +5657,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                         width: 22,
                         height: 22,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                           shape: BoxShape.circle,
                           boxShadow: const [
                             BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2)),
@@ -4862,8 +5696,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       child: Container(
         width: 44,
         height: 44,
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
@@ -4940,11 +5774,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       padding: const EdgeInsets.only(left: 4, bottom: 10, top: 4),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.7,
-          color: Color(0xFF64748B),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -4953,7 +5787,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   Widget _drawerMenuCard({required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
@@ -4968,25 +5802,52 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     );
   }
 
-  Widget _drawerMenuItem(IconData icon, String title, {VoidCallback? onTap}) {
+  Widget _drawerStatusMark(VerificationStatus status) {
+    final IconData icon;
+    final Color color;
+    switch (status) {
+      case VerificationStatus.approved:
+        icon = Icons.check_circle;
+        color = const Color(0xFF009640);
+        break;
+      case VerificationStatus.rejected:
+        icon = Icons.cancel;
+        color = Colors.red;
+        break;
+      case VerificationStatus.pending:
+        icon = Icons.access_time;
+        color = Colors.orange;
+        break;
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(width: 22, height: 22, child: Icon(icon, color: color, size: 20)),
+        const SizedBox(width: 8),
+        const Icon(Icons.chevron_right_rounded, size: 22, color: Color(0xFF94A3B8)),
+      ],
+    );
+  }
+
+  Widget _drawerMenuItem(IconData icon, String title, {VoidCallback? onTap, Widget? trailing}) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFFE8F8EF),
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(icon, color: const Color(0xFF0A7A40), size: 20),
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF0F172A),
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right_rounded, size: 22, color: Color(0xFF94A3B8)),
+      trailing: trailing ?? const Icon(Icons.chevron_right_rounded, size: 22, color: Color(0xFF94A3B8)),
       onTap: onTap,
     );
   }
@@ -5064,7 +5925,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -5198,7 +6059,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
 
   Widget _drawerContent() {
     return Drawer(
-      backgroundColor: const Color(0xFFF3F6F4),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       child: SafeArea(
         child: Column(
           children: [
@@ -5212,6 +6073,38 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                   _drawerSectionTitle('General'),
                   _drawerMenuCard(
                     children: [
+                      _drawerMenuItem(
+                        Icons.home_outlined,
+                        'Home',
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() => _bottomTabIndex = 0);
+                        },
+                      ),
+                      _drawerMenuItem(
+                        Icons.account_balance_wallet_outlined,
+                        'My Earnings',
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() => _bottomTabIndex = 2);
+                        },
+                      ),
+                      _drawerMenuItem(
+                        Icons.settings_outlined,
+                        'Settings',
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() => _bottomTabIndex = 3);
+                        },
+                      ),
+                      _drawerMenuItem(
+                        Icons.account_balance_wallet,
+                        'Wallet',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
+                        },
+                      ),
                       _drawerMenuItem(
                         Icons.person,
                         'Profile',
@@ -5268,6 +6161,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                       _drawerMenuItem(
                         Icons.description,
                         'Document Registration',
+                        trailing: Consumer<DriverStatusSummaryProvider>(
+                          builder: (context, s, _) => _drawerStatusMark(s.summary.documentStatus),
+                        ),
                         onTap: () {
                           Navigator.pop(context);
                           Navigator.push(
@@ -5281,6 +6177,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                       _drawerMenuItem(
                         Icons.directions_car,
                         'Vehicle Registration',
+                        trailing: Consumer<DriverStatusSummaryProvider>(
+                          builder: (context, s, _) => _drawerStatusMark(s.summary.vehicleStatus),
+                        ),
                         onTap: () {
                           Navigator.pop(context);
                           Navigator.push(
@@ -5294,6 +6193,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                       _drawerMenuItem(
                         Icons.account_balance,
                         'Bank details',
+                        trailing: Consumer<DriverStatusSummaryProvider>(
+                          builder: (context, s, _) => _drawerStatusMark(s.summary.bankStatus),
+                        ),
                         onTap: () {
                           Navigator.pop(context);
                           Navigator.push(
@@ -5339,48 +6241,2065 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     );
   }
 
-  Widget _dashboardHome() {
-    return SafeArea(
+  Widget _dashboardHome() => _offlineDashboard();
+
+  bool get _hasIncomingWork =>
+      _myWaitingIntercityRides.isNotEmpty ||
+      _intercityRequests.isNotEmpty ||
+      _seatOffers.isNotEmpty ||
+      _openSeatRequests.isNotEmpty ||
+      (_parcelDutyOn && _liveParcelRequests.isNotEmpty) ||
+      _activeRide != null;
+
+  Future<void> _takeSeatRequest(Map<String, dynamic> row) async {
+    final token = (await _sessionService.getToken() ?? '').trim();
+    final requestId = (row['request_id'] ?? '').toString();
+    final hostId = (row['host_ride_id'] ?? _seatTrip?['host_ride_id'] ?? '').toString();
+    final res = await const ApiService().acceptIntercitySeatShare(
+      token: token,
+      requestId: requestId,
+      hostRideId: hostId,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(res['success'] == true ? 'Passengers added to your car' : (res['message'] ?? 'Could not take this ride').toString())),
+    );
+  }
+
+  Future<void> _skipSeatOffer(Map<String, dynamic> row) async {
+    final token = (await _sessionService.getToken() ?? '').trim();
+    await const ApiService().declineIntercitySeatShare(
+      token: token,
+      requestId: (row['request_id'] ?? '').toString(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _seatOffers = _seatOffers.where((e) => e['request_id'] != row['request_id']).toList();
+    });
+  }
+
+  Widget _seatPassengerCard(Map<String, dynamic> row, {required bool offered}) {
+    final count = row['passenger_count'] ?? 1;
+    final name = (row['rider_name'] ?? 'Passenger').toString();
+    final price = row['price'] ?? 0;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 0, 8, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF009640)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            offered ? 'Empty seats offered to you' : 'Fill your empty seats',
+            style: const TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          Text('$name · $count passenger${count == 1 ? '' : 's'} · ₹$price', style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text('${row['pickup'] ?? ''}  →  ${row['drop'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (offered)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _skipSeatOffer(row),
+                    child: const Text('Not now'),
+                  ),
+                ),
+              if (offered) const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF009640), foregroundColor: Colors.white),
+                  onPressed: () => _takeSeatRequest(row),
+                  child: const Text('Take them', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptySeatsCard() {
+    final empty = _seatTrip?['empty_seats'] ?? 0;
+    final filled = _seatTrip?['seats_filled'] ?? 0;
+    final capacity = _seatTrip?['seat_capacity'] ?? 0;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 0, 8, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE7F6EC),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        'Your car has $empty empty seat${empty == 1 ? '' : 's'} ($filled/$capacity filled). Matching passengers on this route can join so the trip covers the cost.',
+        style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF14532D)),
+      ),
+    );
+  }
+
+  Widget _buildSeatFillCards() {
+    return Column(
+      children: [
+        ..._seatOffers.map((row) => _seatPassengerCard(row, offered: true)),
+        ..._openSeatRequests.where((row) => row['offered'] != true).map((row) => _seatPassengerCard(row, offered: false)),
+      ],
+    );
+  }
+
+  Widget _incomingWorkList() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_myWaitingIntercityRides.isNotEmpty)
+          _buildIntercityWaitingCard(_myWaitingIntercityRides.first),
+        if (_seatTrip != null && ((_seatTrip?['empty_seats'] ?? 0) as num) > 0)
+          _buildEmptySeatsCard(),
+        if (_seatOffers.isNotEmpty || _openSeatRequests.isNotEmpty) _buildSeatFillCards(),
+        if (_intercityRequests.isNotEmpty) ..._intercityRequests.map(_buildIntercityRequestCard),
+        if (_parcelDutyOn && _liveParcelRequests.isNotEmpty)
+          ..._liveParcelRequests.map(_buildParcelRequestCard),
+        if (!_hasIncomingWork) _dashboardCenterSection(),
+      ],
+    );
+  }
+
+  Widget _offlineDashboard() {
+    final top = MediaQuery.paddingOf(context).top;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: MapplsView(
+            key: const ValueKey('captain-home-map'),
+            initialCameraPosition: CameraPosition(target: _cameraTarget, zoom: 15),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            compassEnabled: false,
+            markers: _markers,
+            polylines: _polylines,
+            onMapCreated: (controller) {
+              _liveMap = controller;
+              if (!_mapController.isCompleted) _mapController.complete(controller);
+              final here = _driverLatLng;
+              if (here != null) {
+                controller.animateCamera(CameraUpdate.newLatLngZoom(here, 15));
+              }
+            },
+          ),
+        ),
+        Positioned(top: top + 10, left: 12, right: 12, child: _mapHomeHeader()),
+        if (_activeRide == null)
+          Positioned(top: top + 86, left: 12, child: _mapDashCard()),
+        Positioned(
+          top: top + 86,
+          right: 12,
+          child: _mapControlButton(
+            icon: Icons.my_location_rounded,
+            onTap: _recenterHomeMap,
+          ),
+        ),
+        if (_locationFailed)
+          Positioned(
+            top: top + 78,
+            left: 16,
+            right: 16,
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Text('Location permission is needed to show your position.', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _recenterHomeMap() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (mounted) setState(() => _locationFailed = true);
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+      if (!mounted) return;
+      final target = LatLng(position.latitude, position.longitude);
+      setState(() {
+        _driverLatLng = target;
+        _cameraTarget = target;
+        _locationFailed = false;
+        _markers = _markersWithDriver(target);
+      });
+      final map = _liveMap ?? (_mapController.isCompleted ? await _mapController.future : null);
+      if (map == null) return;
+      await map.animateCamera(
+        CameraUpdate.newLatLngZoom(target, 16),
+        duration: const Duration(milliseconds: 500),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _locationFailed = true);
+    }
+  }
+
+  Widget _mapHomeHeader() {
+    return FutureBuilder<Map<String, String>>(
+      future: _userBasicsFuture,
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? const <String, String>{};
+        final mobile = (data['mobile'] ?? '').trim();
+        final image = _driverImageUrl.trim().isNotEmpty ? _driverImageUrl.trim() : (data['imageUrl'] ?? '').trim();
+        final name = _homeCaptainName(data['name'] ?? '', mobile);
+        final initial = name.isEmpty ? 'C' : name[0].toUpperCase();
+        return Material(
+          color: Theme.of(context).colorScheme.surface,
+          elevation: 6,
+          shadowColor: Colors.black26,
+          borderRadius: BorderRadius.circular(28),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
+                  backgroundImage: image.isEmpty ? null : NetworkImage(image),
+                  child: image.isEmpty ? Text(initial, style: const TextStyle(color: Color(0xFF149444), fontWeight: FontWeight.w800, fontSize: 18)) : null,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+      child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_wishTitle(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF149444), fontWeight: FontWeight.w700, fontSize: 12)),
+                      const SizedBox(height: 1),
+                      Text(name.isEmpty ? 'Captain' : name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 16)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _mapDutyToggle(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _mapDutyToggle() {
+    final online = _isOnline;
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: _dutyUpdating || !online ? null : () => _toggleStatus(false),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: online ? Colors.transparent : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: online ? Colors.transparent : const Color(0xFFE5E7EB)),
+              ),
+              child: Text('OFF', style: TextStyle(color: online ? const Color(0xFF9CA3AF) : const Color(0xFF374151), fontWeight: FontWeight.w800, fontSize: 12)),
+            ),
+          ),
+          GestureDetector(
+            onTap: _dutyUpdating || online ? null : () => _toggleStatus(true),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: online ? const Color(0xFF149444) : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('ON DUTY', style: TextStyle(color: online ? Colors.white : const Color(0xFF149444), fontWeight: FontWeight.w800, fontSize: 12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mapDashCard() {
+    final rating = _driverRating > 0 ? _driverRating.toStringAsFixed(1) : '0.0';
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 6,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => setState(() => _bottomTabIndex = 2),
+        child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.grid_view_rounded, color: Color(0xFF149444), size: 16),
+                SizedBox(width: 6),
+                Text('Dashboard', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 15)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _mapDashRow(Icons.payments_rounded, _inr(_todayEarning), 'Earnings'),
+            const SizedBox(height: 8),
+            _mapDashRow(Icons.star_rounded, rating, 'Ratings'),
+            const SizedBox(height: 8),
+            _mapDashRow(Icons.receipt_long_rounded, '$_todayTrips', 'Trips'),
+          ],
+        ),
+      ),
+      ),
+    );
+  }
+
+  Widget _mapDashRow(IconData icon, String value, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
+          child: Icon(icon, color: const Color(0xFF149444), size: 16),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 14, height: 1.1)),
+            Text(label, style: const TextStyle(color: Color(0xFF9CA3AF), fontWeight: FontWeight.w600, fontSize: 11)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _homeBanner(double top) {
+    final unread = context.watch<ChatNotificationProvider>().unreadCount;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16, top + 14, 12, 18),
+            decoration: const BoxDecoration(
+        color: Color(0xFF149444),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -18,
+            top: -28,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.08)),
+            ),
+          ),
+          Positioned(
+            left: -40,
+            bottom: -24,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.06)),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(child: _homeIdentity()),
+              const SizedBox(width: 8),
+              _headerDutySwitch(),
+              _homeCircleButton(
+                icon: Icons.notifications_none_rounded,
+                label: 'Notifications',
+                showDot: unread > 0,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _homeIdentity() {
+    return FutureBuilder<Map<String, String>>(
+      future: _userBasicsFuture,
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? const <String, String>{};
+        final mobile = (data['mobile'] ?? '').trim();
+        final image = _driverImageUrl.trim().isNotEmpty ? _driverImageUrl.trim() : (data['imageUrl'] ?? '').trim();
+        final name = _homeCaptainName(data['name'] ?? '', mobile);
+        final initial = name.isEmpty ? 'C' : name[0].toUpperCase();
+        final ratingLabel = _driverRating > 0 ? _driverRating.toStringAsFixed(1) : '';
+        return Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.22),
+              backgroundImage: image.isEmpty ? null : NetworkImage(image),
+              child: image.isEmpty ? Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20)) : null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_wishTitle(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 2),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18, height: 1.1),
+                  ),
+                  if (ratingLabel.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 15),
+                        const SizedBox(width: 2),
+                        Text(ratingLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _headerDutySwitch() {
+    final online = _isOnline;
+    return GestureDetector(
+      onTap: _dutyUpdating ? null : () => _toggleStatus(!online),
+      onHorizontalDragEnd: _dutyUpdating
+          ? null
+          : (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity > 80 && !online) _toggleStatus(true);
+              if (velocity < -80 && online) _toggleStatus(false);
+            },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        width: 96,
+        height: 34,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Stack(
+          children: [
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: online ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                width: 46,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: online ? const Color(0xFF149444) : const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'Off',
+                      style: TextStyle(
+                        color: online ? const Color(0xFF6B7280) : const Color(0xFF374151),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'On',
+                      style: TextStyle(
+                        color: online ? Colors.white : const Color(0xFF6B7280),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _todayEarningsCard() {
+    final avg = _todayTrips <= 0 ? 0.0 : _todayEarning / _todayTrips;
+    final parts = _todayHours.split(':');
+    final hours = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0;
+    final mins = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.10), blurRadius: 28, offset: const Offset(0, 14)),
+          BoxShadow(color: const Color(0xFF149444).withValues(alpha: 0.10), blurRadius: 10, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text("Today's earnings", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 15))),
+              GestureDetector(
+                onTap: () => setState(() => _bottomTabIndex = 2),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('See all', style: TextStyle(color: Color(0xFF149444), fontWeight: FontWeight.w800, fontSize: 14)),
+                    Icon(Icons.chevron_right_rounded, color: Color(0xFF149444), size: 18),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(_inr(_todayEarning), style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface, height: 1.05, letterSpacing: -0.8)),
+              ),
+              if (_lastTripEarning > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: const Color(0xFFE7F8EE), borderRadius: BorderRadius.circular(20)),
+                  child: Text('+${_inr(_lastTripEarning)} last trip', style: const TextStyle(color: Color(0xFF149444), fontWeight: FontWeight.w800, fontSize: 12)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Divider(height: 1, color: Theme.of(context).colorScheme.surface),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _earningStat(Icons.directions_car_filled_rounded, const Color(0xFF3B82F6), const Color(0xFFE8F1FF), '$_todayTrips', 'Trips'),
+              _statDivider(),
+              _earningStat(Icons.schedule_rounded, const Color(0xFF7C3AED), const Color(0xFFF3E8FF), '${hours}h ${mins}m', 'Online'),
+              _statDivider(),
+              _earningStat(Icons.currency_rupee_rounded, const Color(0xFFF59E0B), const Color(0xFFFFF4E5), _inr(avg), 'Per trip'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statDivider() => Container(width: 1, height: 36, color: Theme.of(context).colorScheme.surface);
+
+  Widget _earningStat(IconData icon, Color color, Color background, String value, String label) {
+    return Expanded(
       child: Column(
         children: [
           Container(
-            height: 90,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color(0xFF369D01),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Align(
-              alignment: Alignment.center,
-              child: _topControlBar(),
-            ),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 16),
           ),
-          _walletBar(),
-          _dashboardGreetingCard(),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
+          Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _dutyBanner() {
+    final online = _isOnline;
+    final label = _dutyUpdating ? 'Please wait' : (online ? 'Searching for ride requests...' : 'Go online');
+    return Material(
+      color: online ? const Color(0xFFE7F6EC) : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: online || _dutyUpdating ? null : () => _toggleStatus(true),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: online ? const Color(0xFFD7F0E1) : const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              _PulseDot(active: online && !_dutyUpdating),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(color: online ? const Color(0xFF3F6B52) : const Color(0xFF149444), fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _wishCard() {
+    final hour = DateTime.now().hour;
+    final night = hour >= 21 || hour < 5;
+    final evening = hour >= 17 && hour < 21;
+    final afternoon = hour >= 12 && hour < 17;
+    final icon = night
+        ? Icons.nights_stay_rounded
+        : evening
+            ? Icons.wb_twilight_rounded
+            : afternoon
+                ? Icons.wb_cloudy_rounded
+                : Icons.wb_sunny_rounded;
+    final tint = night
+        ? const Color(0xFF1E3A8A)
+        : evening
+            ? const Color(0xFFC2410C)
+            : afternoon
+                ? const Color(0xFF1D4ED8)
+                : const Color(0xFFB45309);
+    final background = night
+        ? const Color(0xFFEEF2FF)
+        : evening
+            ? const Color(0xFFFFF7ED)
+            : afternoon
+                ? const Color(0xFFEFF6FF)
+                : const Color(0xFFFFFBEB);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
+            child: Icon(icon, color: tint, size: 24),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_myWaitingIntercityRides.isNotEmpty)
-                  _buildIntercityWaitingCard(_myWaitingIntercityRides.first),
-                if (_intercityRequests.isNotEmpty)
-                  ..._intercityRequests.map(_buildIntercityRequestCard),
-                if (_parcelDutyOn && _liveParcelRequests.isNotEmpty)
-                  ..._liveParcelRequests.map(_buildParcelRequestCard),
-                if (_myWaitingIntercityRides.isEmpty &&
-                    _intercityRequests.isEmpty &&
-                    !(_parcelDutyOn && _liveParcelRequests.isNotEmpty))
-                  _dashboardCenterSection(),
+                Text(
+                  () {
+                    final who = _homeCaptainName('', '');
+                    return who.isEmpty ? _wishTitle() : '${_wishTitle()}, $who';
+                  }(),
+                  style: TextStyle(color: tint, fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+                const SizedBox(height: 2),
+                Text(_wishMessage(), style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600, fontSize: 13, height: 1.3)),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _walletHomeCard() {
+    final balance = _walletBalanceLoading ? '...' : _inr(_walletBalance);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Wallet balance', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 2),
+          Text(balance, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 28, height: 1.1)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _walletAction(
+                  label: 'Open wallet',
+                  filled: true,
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
+                    if (mounted) _loadWalletBalance();
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _walletAction(
+                  label: 'Withdraw',
+                  filled: false,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverWithdrawScreen())),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _walletAction({required String label, required bool filled, required VoidCallback onTap}) {
+    return Material(
+      color: filled ? const Color(0xFF149444) : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 42,
+              alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF149444)),
+          ),
+          child: Text(label, style: TextStyle(color: filled ? Colors.white : const Color(0xFF149444), fontWeight: FontWeight.w800, fontSize: 14)),
+        ),
+      ),
+    );
+  }
+
+  Widget _weekChartCard() {
+    var peak = 0.0;
+    for (final day in _weekDays) {
+      if (day > peak) peak = day;
+    }
+    final todayIndex = DateTime.now().weekday - 1;
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('This week', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 16))),
+              Text(_inr(_weekTotal), style: const TextStyle(color: Color(0xFF149444), fontWeight: FontWeight.w800, fontSize: 16)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 92,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(7, (index) {
+                final share = peak <= 0 ? 0.0 : _weekDays[index] / peak;
+                final height = 14 + share * 48;
+                final active = index == todayIndex;
+                return Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 280),
+                        height: height,
+                        width: 16,
+                        decoration: BoxDecoration(
+                          color: active ? const Color(0xFF149444) : const Color(0xFFCDEBD8),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(labels[index], style: const TextStyle(color: Color(0xFF9CA3AF), fontWeight: FontWeight.w700, fontSize: 12)),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _todayGlance(double avg, int hours, int mins) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF009640).withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+          Expanded(
+                child: Text("Today's earnings", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 15)),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _bottomTabIndex = 2),
+                child: const Text('See all', style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w800, fontSize: 15)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '₹${_todayEarning.toStringAsFixed(0)}',
+            style: TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface, height: 1.1, letterSpacing: -0.8),
+          ),
+          const SizedBox(height: 14),
+          Row(
+              children: [
+              _tintStat('$_todayTrips', 'Trips', const Color(0xFFEAF8F0), const Color(0xFF067A3C)),
+              const SizedBox(width: 8),
+              _tintStat('${hours}h ${mins}m', 'Online', const Color(0xFFEFF6FF), const Color(0xFF1D4ED8)),
+              const SizedBox(width: 8),
+              _tintStat('₹${avg.toStringAsFixed(0)}', 'Per trip', const Color(0xFFFFF7ED), const Color(0xFFC2410C)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tintStat(String value, String label, Color background, Color foreground) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(14)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: foreground, fontWeight: FontWeight.w800, fontSize: 16)),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(color: foreground.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color background,
+    required Color foreground,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(14)),
+                child: Icon(icon, color: foreground, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w800, fontSize: 16)),
+                    const SizedBox(height: 2),
+                    Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _earningsSummaryCard() {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => setState(() => _bottomTabIndex = 2),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Today's Earnings", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 13)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '₹ ${_todayEarning.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface, height: 1.1),
+                    ),
+                  ],
+                ),
+              ),
+              const Column(
+                children: [
+                  Icon(Icons.bar_chart_rounded, color: Color(0xFF009640), size: 22),
+                  SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('View Details', style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w800, fontSize: 12)),
+                      Icon(Icons.chevron_right, color: Color(0xFF009640), size: 16),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _performanceRow(double avg) {
+    Widget metric(IconData icon, Color tint, String value, String label) {
+      return Expanded(
+        child: Column(
+          children: [
+            Icon(icon, color: tint, size: 20),
+            const SizedBox(height: 4),
+            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
+    }
+
+    final parts = _todayHours.split(':');
+    final hours = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0;
+    final mins = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          metric(Icons.directions_car_filled_outlined, const Color(0xFF009640), '$_todayTrips', 'Trips'),
+          Container(width: 1, height: 36, color: const Color(0xFFE5E7EB)),
+          metric(Icons.schedule_rounded, const Color(0xFF3B82F6), '${hours}h ${mins}m', 'Online Time'),
+          Container(width: 1, height: 36, color: const Color(0xFFE5E7EB)),
+          metric(Icons.payments_outlined, const Color(0xFFF59E0B), '₹ ${avg.toStringAsFixed(0)}', 'Avg. Earning'),
+        ],
+      ),
+    );
+  }
+
+  Widget _dutyActionRow() {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: _dutyUpdating ? null : () => _toggleStatus(!_isOnline),
+        child: Container(
+          height: 62,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFB7E4C7)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(color: Color(0xFF009640), shape: BoxShape.circle),
+                child: Icon(_isOnline ? Icons.power_settings_new : Icons.power_settings_new, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _dutyUpdating ? 'Updating...' : (_isOnline ? 'Go Offline' : 'Go Online'),
+                      style: const TextStyle(color: Color(0xFF067A3C), fontWeight: FontWeight.w800, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Color(0xFF009640)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _homeShortcuts() {
+    Widget tile(IconData icon, String label, Color background, Color tint, VoidCallback onTap) {
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Material(
+            color: background,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                child: Column(
+                  children: [
+                    Icon(icon, color: tint, size: 22),
+                    const SizedBox(height: 8),
+                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Theme.of(context).colorScheme.onSurface)),
+                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        tile(Icons.account_balance_wallet_outlined, 'Wallet', const Color(0xFFEAF8F0), const Color(0xFF009640), () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
+          if (mounted) _loadWalletBalance();
+        }),
+        tile(Icons.bar_chart_rounded, 'Earnings', const Color(0xFFE8F1FF), const Color(0xFF3B82F6), () => setState(() => _bottomTabIndex = 2)),
+        tile(Icons.assignment_outlined, 'My Jobs', const Color(0xFFFFF4E5), const Color(0xFFF59E0B), () => setState(() => _bottomTabIndex = 1)),
+        tile(Icons.star_rounded, 'My Rating', const Color(0xFFF3E8FF), const Color(0xFF8B5CF6), () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRatingScreen()));
+        }),
+      ],
+    );
+  }
+
+  Widget _onlineMapHome() {
+    final top = MediaQuery.paddingOf(context).top;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: MapplsView(
+            initialCameraPosition: CameraPosition(target: _cameraTarget, zoom: 15),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            markers: _markers,
+            polylines: _polylines,
+            onMapCreated: (controller) {
+              if (!_mapController.isCompleted) _mapController.complete(controller);
+              controller.animateCamera(CameraUpdate.newLatLngZoom(_cameraTarget, 16));
+            },
+          ),
+        ),
+        Positioned(
+          top: top + 8,
+          left: 12,
+          right: 12,
+          child: _onlineTopBar(),
+        ),
+        if (_locationFailed)
+          Positioned(
+            top: top + 64,
+            left: 16,
+            right: 16,
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Text(
+                  'Location permission is needed to show your position.',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  int get _incomingCount =>
+      _myWaitingIntercityRides.length +
+      _intercityRequests.length +
+      (_parcelDutyOn ? _liveParcelRequests.length : 0);
+
+  Widget _incomingRequestsLayer() {
+    final count = _incomingCount;
+    if (count <= 0) return const SizedBox.shrink();
+    if (count > _seenIncomingCount && !_requestsSheetOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_requestsSheetOpen) setState(() => _requestsSheetOpen = true);
+      });
+    }
+    _seenIncomingCount = count;
+
+    final bottom = 64.0 + MediaQuery.paddingOf(context).bottom;
+    if (_requestsSheetOpen) {
+      return _multipleRequestsSheet();
+    }
+    return Positioned(
+        right: 16,
+        bottom: bottom + 12,
+        child: Material(
+          color: Colors.white,
+          elevation: 4,
+          shadowColor: const Color(0x33000000),
+          borderRadius: BorderRadius.circular(22),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: () => setState(() => _requestsSheetOpen = true),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(color: Color(0xFF009640), shape: BoxShape.circle),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    count == 1 ? 'Request' : 'Requests',
+                    style: const TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                  const Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: Color(0xFF6B7280)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+  }
+
+  void _focusIncomingRequest(String id) {
+    setState(() => _selectedIncomingId = id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _incomingCardKeys[id]?.currentContext;
+      if (target == null || !target.mounted) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 280),
+        alignment: 0.08,
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  void _armIncomingClock(List<String> ids) {
+    final now = DateTime.now();
+    for (final id in ids) {
+      _incomingSeenAt.putIfAbsent(id, () => now);
+    }
+    _incomingSeenAt.removeWhere((id, _) => !ids.contains(id));
+    if (_incomingTick != null) return;
+    _incomingTick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_requestsSheetOpen || _incomingCount < 1) {
+        _incomingTick?.cancel();
+        _incomingTick = null;
+        return;
+      }
+      setState(() {});
+    });
+  }
+
+  int _incomingSecondsLeft(String id) {
+    const window = 60;
+    final seen = _incomingSeenAt[id];
+    if (seen == null) return window;
+    final left = window - DateTime.now().difference(seen).inSeconds;
+    if (left < 0) return 0;
+    if (left > window) return window;
+    return left;
+  }
+
+  Color _incomingRingColor(int seconds, bool selected) {
+    if (selected) return const Color(0xFF009640);
+    if (seconds >= 45) return const Color(0xFF9CA3AF);
+    if (seconds >= 30) return const Color(0xFFEF4444);
+    if (seconds >= 18) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  List<_IncomingChoice> _incomingChoices() {
+    final rows = <_IncomingChoice>[];
+    for (final req in _myWaitingIntercityRides) {
+      rows.add(_IncomingChoice(
+        id: 'wait-${req.id}',
+        card: _buildIntercityWaitingCard(req),
+      ));
+    }
+    for (final req in _intercityRequests) {
+      rows.add(_IncomingChoice(
+        id: req.id,
+        card: _buildIntercityRequestCard(req),
+      ));
+    }
+    if (_parcelDutyOn) {
+      for (final parcel in _liveParcelRequests) {
+        final id = _asTrimmed(parcel['_id'] ?? parcel['id']);
+        if (id.isEmpty) continue;
+        rows.add(_IncomingChoice(
+          id: 'parcel-$id',
+          card: _buildParcelRequestCard(parcel),
+        ));
+      }
+    }
+    final now = DateTime.now();
+    for (final row in rows) {
+      _incomingSeenAt.putIfAbsent(row.id, () => now);
+    }
+    rows.sort((a, b) {
+      final aSeen = _incomingSeenAt[a.id] ?? now;
+      final bSeen = _incomingSeenAt[b.id] ?? now;
+      return aSeen.compareTo(bSeen);
+    });
+    return rows;
+  }
+
+  Widget _multipleRequestsSheet() {
+    final rows = _incomingChoices();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    _armIncomingClock(rows.map((row) => row.id).toList());
+    var selectedId = _selectedIncomingId;
+    if (!rows.any((row) => row.id == selectedId)) selectedId = rows.first.id;
+    final listHeight = min(MediaQuery.sizeOf(context).height * 0.62, 560.0);
+    for (final row in rows) {
+      _incomingCardKeys.putIfAbsent(row.id, GlobalKey.new);
+    }
+
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => setState(() => _requestsSheetOpen = false),
+              child: const ColoredBox(color: Color(0x73000000)),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Material(
+              color: Colors.white,
+              elevation: 18,
+              shadowColor: Colors.black54,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 4, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              rows.length == 1 ? 'New request' : 'New requests',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => setState(() => _requestsSheetOpen = false),
+                            icon: const Icon(Icons.close_rounded, color: Color(0xFF111827)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      height: listHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: 58,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(6, 4, 0, 12),
+                              itemCount: rows.length,
+                              itemBuilder: (context, index) {
+                                final row = rows[index];
+                                final isSelected = row.id == selectedId;
+                                final seconds = _incomingSecondsLeft(row.id);
+                                final ring = _incomingRingColor(seconds, isSelected);
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Material(
+                                    color: isSelected ? const Color(0xFFE7F8EE) : Colors.transparent,
+                                    shape: const CircleBorder(),
+                                    child: InkWell(
+                                      customBorder: const CircleBorder(),
+                                      onTap: () => _focusIncomingRequest(row.id),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: RequestCountdownRing(seconds: seconds, totalSeconds: 60, color: ring),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView.builder(
+                              controller: _incomingListScroll,
+                              padding: const EdgeInsets.only(bottom: 12),
+                              itemCount: rows.length,
+                              itemBuilder: (context, index) {
+                                final row = rows[index];
+                                final isSelected = row.id == selectedId;
+                                return Container(
+                                  key: _incomingCardKeys[row.id],
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected ? const Color(0xFF009640) : Colors.transparent,
+                                      width: isSelected ? 1.5 : 0,
+                                    ),
+                                  ),
+                                  child: row.card,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _onlineTopBar() {
+    final unread = context.watch<ChatNotificationProvider>().unreadCount;
+    return Row(
+      children: [
+        _mapControlButton(
+          icon: Icons.menu_rounded,
+          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        const Spacer(),
+        Material(
+          color: Theme.of(context).colorScheme.surface,
+          elevation: 3,
+          shadowColor: Colors.black26,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: _dutyUpdating ? null : () => _toggleStatus(false),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(color: Color(0xFF009640), shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _dutyUpdating ? '...' : 'ONLINE',
+                    style: const TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w900, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const Spacer(),
+        _mapControlButton(
+          icon: Icons.notifications_none_rounded,
+          showDot: unread > 0,
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+          },
+        ),
+        const SizedBox(width: 8),
+        _mapControlButton(
+          icon: Icons.sos_rounded,
+          background: const Color(0xFFE11D48),
+          iconColor: Colors.white,
+          onTap: _handleHomeSOS,
+        ),
+      ],
+    );
+  }
+
+  Widget _mapControlButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    Color background = Colors.white,
+    Color iconColor = const Color(0xFF111827),
+    bool showDot = false,
+  }) {
+    return Material(
+      color: background,
+      elevation: 3,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(icon, color: iconColor, size: 22),
+              if (showDot)
+                const Positioned(
+                  top: 8,
+                  right: 8,
+                  child: CircleAvatar(radius: 4, backgroundColor: Color(0xFFE11D48)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _brandHeader() {
+    final unread = context.watch<ChatNotificationProvider>().unreadCount;
+    return Row(
+      children: [
+        const Text('Vite Captain', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 22, height: 1)),
+        const Spacer(),
+        _headerIconButton(
+          icon: Icons.notifications_none_rounded,
+          label: 'Notifications',
+          showDot: unread > 0,
+          light: true,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+        ),
+        _headerIconButton(
+          icon: Icons.headset_mic_outlined,
+          label: 'Support',
+          light: true,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportScreen())),
+        ),
+      ],
+    );
+  }
+
+  Widget _headerIconButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool showDot = false,
+    bool light = false,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Material(
+          color: light ? Colors.white.withValues(alpha: 0.18) : const Color(0xFFF3F4F6),
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 46,
+              height: 46,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(icon, color: light ? Colors.white : const Color(0xFF111827), size: 24),
+                  if (showDot)
+                    const Positioned(
+                      right: 10,
+                      top: 10,
+                      child: CircleAvatar(radius: 4, backgroundColor: Color(0xFFE11D48)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _captainHeader() {
+    return FutureBuilder<Map<String, String>>(
+      future: _userBasicsFuture,
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? const <String, String>{};
+        final rawName = _driverName.trim().isNotEmpty ? _driverName.trim() : (data['name'] ?? '').trim();
+        final mobile = (data['mobile'] ?? '').trim();
+        final image = _driverImageUrl.trim().isNotEmpty ? _driverImageUrl.trim() : (data['imageUrl'] ?? '').trim();
+        final greetingName = _displayCaptainName(rawName, mobile);
+        final phoneLine = mobile.isNotEmpty ? mobile : (_looksLikePhone(rawName) ? rawName : '');
+        final rating = _driverRating > 0 ? _driverRating.toStringAsFixed(1) : '0.0';
+        final countLabel = _ratingCount > 0 ? ' ($_ratingCount)' : '';
+        return Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
+                  backgroundImage: image.isEmpty ? null : NetworkImage(image),
+                  child: image.isEmpty ? const Icon(Icons.person, color: Color(0xFF009640), size: 28) : null,
+                ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hi, $greetingName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 18),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(
+                          phoneLine.isEmpty ? '$rating$countLabel' : '$rating$countLabel  ·  $phoneLine',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _isOnline ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _dutyUpdating ? 'Wait' : (_isOnline ? 'Online' : 'Offline'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  bool _looksLikePhone(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 8;
+  }
+
+  String _displayCaptainName(String name, String mobile) {
+    if (name.isEmpty || _looksLikePhone(name) || name == mobile) return 'Captain';
+    return name;
+  }
+
+  String _homeCaptainName(String sessionName, String mobile) {
+    final saved = _driverName.trim();
+    final session = sessionName.trim();
+    for (final value in [saved, session]) {
+      if (value.isEmpty || value == mobile || _looksLikePhone(value)) continue;
+      if (value.toLowerCase() == 'captain') continue;
+      return value;
+    }
+    return saved.isNotEmpty && saved.toLowerCase() != 'captain' && !_looksLikePhone(saved) ? saved : '';
+  }
+
+  String _wishTitle() {
+    final hour = DateTime.now().hour;
+    if (hour < 5 || hour >= 21) return 'Good night';
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String _wishMessage() => 'Go online and start the earning.';
+
+  Widget _homeCircleButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool showDot = false,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Material(
+          color: const Color(0xFFC8EE7A),
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(icon, color: const Color(0xFF166534), size: 20),
+                  if (showDot) const Positioned(right: 9, top: 9, child: CircleAvatar(radius: 4, backgroundColor: Color(0xFFE11D48))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dutyCard() {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 3,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 8, 10, 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _isOnline ? const Color(0xFF009640) : const Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _isOnline ? 'ONLINE' : 'OFF DUTY',
+                  style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.4, color: Theme.of(context).colorScheme.onSurface),
+                ),
+                const Spacer(),
+                Switch(
+                  value: _isOnline,
+                  activeThumbColor: const Color(0xFF009640),
+                  onChanged: _dutyUpdating ? null : (value) => _toggleStatus(value),
+                ),
+              ],
+            ),
+            Text(
+              _isOnline
+                  ? 'You are online and can receive ride requests'
+                  : 'Go online to start receiving ride requests',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _walletCard() {
+    return Material(
+      color: const Color(0xFFE7F6EC),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => setState(() => _bottomTabIndex = 2),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 8, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "TODAY'S EARNINGS",
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 0.6),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '₹ ${_todayEarning.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface, height: 1),
+                    ),
+                  ],
+                ),
+              ),
+              Container(width: 1, height: 46, color: const Color(0xFFD1E7D8)),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'TRIPS',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 0.6),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$_todayTrips',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface, height: 1),
+                  ),
+                ],
+              ),
+              const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF), size: 28),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _quickActions() {
+    Widget item(IconData icon, String label, Color tint, VoidCallback onTap) {
+      return Expanded(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: tint, size: 26),
+              ),
+              const SizedBox(height: 8),
+              Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        item(Icons.account_balance_wallet_outlined, 'Wallet', const Color(0xFF16A34A), () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
+          if (mounted) _loadWalletBalance();
+        }),
+        item(Icons.bar_chart_rounded, 'Earnings', const Color(0xFF3B82F6), () {
+          setState(() => _bottomTabIndex = 2);
+        }),
+        item(Icons.receipt_long_outlined, 'Activity', const Color(0xFFF59E0B), () {
+          setState(() => _bottomTabIndex = 1);
+        }),
+        item(Icons.star_rounded, 'My Rating', const Color(0xFFFBBF24), () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRatingScreen()));
+        }),
+      ],
+    );
+  }
+
+  Widget _offlineBanner() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox(
+        height: 188,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: Color(0xFFE7F8EE)),
+            Image.asset(
+              'assets/images/vitecaptain-car-banner.png',
+              fit: BoxFit.fitHeight,
+              alignment: Alignment.centerRight,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 148, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("You're Offline", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Go online and start\nearning with ViteCaptain',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600, fontSize: 14, height: 1.25),
+                  ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    onPressed: _dutyUpdating ? null : () => _toggleStatus(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF009640),
+                      foregroundColor: Colors.white,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    ),
+                    icon: const Icon(Icons.power_settings_new, size: 18, color: Colors.white),
+                    label: const Text('Go Online', style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _todayStats() {
+    Widget tile(IconData icon, String value, String label, Color bg) {
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFF166534)),
+              const SizedBox(height: 8),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text("Today's Stats", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            ),
+            TextButton(
+              onPressed: () => setState(() => _bottomTabIndex = 2),
+              child: const Text('View All', style: TextStyle(color: Color(0xFF009640), fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            tile(Icons.local_taxi_outlined, '$_todayTrips', 'Trips Completed', const Color(0xFFE8F8EE)),
+            const SizedBox(width: 10),
+            tile(Icons.schedule_rounded, _todayHours, 'Online Hours', const Color(0xFFEFF6FF)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            tile(Icons.currency_rupee, '₹ ${_todayEarning.toStringAsFixed(2)}', "Today's Earnings", const Color(0xFFFEF9C3)),
+            const SizedBox(width: 10),
+            tile(Icons.star_rounded, _driverRating > 0 ? _driverRating.toStringAsFixed(1) : '0.0', "Today's Rating", const Color(0xFFFFE4E6)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Set<Marker> _markersForActiveRide(LatLng driver, {double rotation = 0}) {
+    final ride = _activeRide;
+    final pickup = ride == null ? null : (_latLngOf(ride['pickup']) ?? _latLngOf(ride['pickup_location']));
+    final drop = ride == null ? null : (_latLngOf(ride['drop']) ?? _latLngOf(ride['drop_location']));
+    return <Marker>{
+      Marker(
+        markerId: const MarkerId('driver'),
+        position: driver,
+        icon: _driverIcon ?? BitmapDescriptor.defaultMarker,
+        flat: true,
+        rotation: rotation,
+        anchor: const Offset(0.5, 0.5),
+      ),
+      if (pickup != null)
+        Marker(
+          markerId: const MarkerId('active_pickup'),
+          position: pickup,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: const InfoWindow(title: 'Pickup'),
+        ),
+      if (drop != null)
+        Marker(
+          markerId: const MarkerId('active_drop'),
+          position: drop,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: const InfoWindow(title: 'Drop'),
+        ),
+    };
+  }
+
+  String _activeRouteKey = '';
+
+  Future<void> _syncActiveRideMap(Map<String, dynamic> ride, {bool fit = false}) async {
+    final driver = _driverLatLng;
+    final pickup = _latLngOf(ride['pickup']) ?? _latLngOf(ride['pickup_location']);
+    final drop = _latLngOf(ride['drop']) ?? _latLngOf(ride['drop_location']);
+    if (driver != null && mounted) {
+      setState(() {
+        _markers = _markersForActiveRide(driver);
+      });
+    }
+    final status = _rideStatusOf(ride);
+    final toDrop = status == 'ongoing' || status == 'started' || status == 'in_progress' || _isCompletedRideStatus(status);
+    final target = toDrop ? drop : pickup;
+    final origin = driver ?? (toDrop ? pickup : null);
+    if (origin == null || target == null) return;
+    final key = '${toDrop ? 'drop' : 'pickup'}|${origin.latitude.toStringAsFixed(3)},${origin.longitude.toStringAsFixed(3)}|${target.latitude.toStringAsFixed(4)},${target.longitude.toStringAsFixed(4)}';
+    if (_activeRouteKey == key && _polylines.isNotEmpty && !fit) return;
+    _activeRouteKey = key;
+    final requestId = ++_routeRequestId;
+    final route = await _buildRoutePolyline(origin, target);
+    if (!mounted || requestId != _routeRequestId) return;
+    setState(() {
+      _polylines = route == null ? <Polyline>{} : <Polyline>{route};
+    });
+    if (fit) {
+      await _fitBoundsForPickupDrop(origin, target);
+    }
+  }
+
+  Set<Marker> _markersWithDriver(LatLng latLng, {double rotation = 0}) {
+    return <Marker>{
+      Marker(
+        markerId: const MarkerId('driver'),
+        position: latLng,
+        icon: _driverIcon ?? BitmapDescriptor.defaultMarker,
+        flat: true,
+        rotation: rotation,
+        anchor: const Offset(0.5, 0.5),
+      ),
+      ..._demandMarkers,
+    };
+  }
+
+  double? _asCoord(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse((value ?? '').toString());
+  }
+
+  Set<Marker> _demandMarkersFor(List<Map<String, dynamic>> requests) {
+    final markers = <Marker>{};
+    for (final request in requests.take(8)) {
+      final pickup = request['pickup'];
+      if (pickup is! Map) continue;
+      final lat = _asCoord(pickup['lat'] ?? pickup['latitude']);
+      final lng = _asCoord(pickup['lng'] ?? pickup['lon'] ?? pickup['longitude']);
+      if (lat == null || lng == null) continue;
+      final id = (request['_id'] ?? request['id'] ?? lat.toString()).toString();
+      markers.add(
+        Marker(
+          markerId: MarkerId('demand_$id'),
+          position: LatLng(lat, lng),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: const InfoWindow(title: 'Nearby trip'),
+        ),
+      );
+    }
+    return markers;
   }
 
   Future<void> _loadDriverIcon() async {
@@ -5390,7 +8309,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         iconData: Icons.directions_car,
         size: 72,
         color: const Color(0xFF369D01),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         padding: 18,
       );
       _driverIcon = BitmapDescriptor.fromBytes(bytes);
@@ -5471,6 +8390,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                 lat: pos.latitude,
                 lng: pos.longitude,
               );
+              try {
+                final zone = await ZoneService.instance.syncLocation(pos.latitude, pos.longitude);
+                if (zone != null && zone.isNotEmpty && zone != _serviceState && mounted) {
+                  setState(() => _serviceState = zone);
+                  _loadZoneServices(zone);
+                }
+              } catch (_) {}
             }
           } catch (_) {}
         }
@@ -5480,19 +8406,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         setState(() {
           _driverLatLng = latLng;
           _speedKmh = nextSpeed.isFinite ? nextSpeed.clamp(0, 250).toDouble() : 0;
+          if (_activeRide == null) {
           _cameraTarget = latLng;
-          _markers = <Marker>{
-            Marker(
-              markerId: const MarkerId('driver'),
-              position: latLng,
-              icon: _driverIcon ?? BitmapDescriptor.defaultMarker,
-              flat: true,
-              rotation: pos.heading,
-              anchor: const Offset(0.5, 0.5),
-            ),
-          };
+            _markers = _markersWithDriver(latLng, rotation: pos.heading);
           _polylines = <Polyline>{};
+          } else {
+            _markers = _markersForActiveRide(latLng, rotation: pos.heading);
+          }
         });
+        final ride = _activeRide;
+        if (ride != null) {
+          _syncActiveRideMap(ride);
+          _syncRideBubble(ride);
+        }
       }
     });
   }
@@ -5584,6 +8510,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     _stopActiveRidePolling();
     _stopParcelRequestsPolling();
     _positionSub?.cancel();
+    _tts?.stop();
+    _etaTick?.cancel();
+    _incomingTick?.cancel();
+    _incomingListScroll.dispose();
     _togglePlayer.dispose();
     _pickupController.dispose();
     _dropController.dispose();
@@ -5641,29 +8571,24 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       final address = (data['address'] as String);
 
       _cameraTarget = LatLng(lat, lng);
+      _locationFailed = false;
       await _loadDriverIcon();
 
       setState(() {
         _driverLatLng = LatLng(lat, lng);
-        _markers = <Marker>{
-          Marker(
-            markerId: const MarkerId('driver'),
-            position: LatLng(lat, lng),
-            icon: _driverIcon ?? BitmapDescriptor.defaultMarker,
-            flat: true,
-            anchor: const Offset(0.5, 0.5),
-          ),
-        };
+        _markers = _markersWithDriver(LatLng(lat, lng));
         _polylines = <Polyline>{};
       });
 
-      if (_mapController.isCompleted) {
-        final map = await _mapController.future;
+      final map = _liveMap ?? (_mapController.isCompleted ? await _mapController.future : null);
+      if (map != null) {
         await map.animateCamera(
           CameraUpdate.newLatLngZoom(_cameraTarget, 16),
+          duration: const Duration(milliseconds: 500),
         );
       }
     } catch (_) {
+      _locationFailed = true;
     } finally {
       if (!mounted) return;
       setState(() {
@@ -5708,7 +8633,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(color: Color(0x22000000), blurRadius: 10, offset: Offset(0, 3)),
@@ -5734,46 +8659,60 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     required IconData icon,
     required String label,
     required int index,
+    int badge = 0,
   }) {
     final bool isActive = _bottomTabIndex == index;
-
-    return GestureDetector(
+    final color = isActive ? const Color(0xFF009640) : const Color(0xFF9CA3AF);
+    return Expanded(
+      child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        setState(() {
-          _bottomTabIndex = index;
-        });
-
-        if (index == 0) {
-          _hydrateParcelDuty();
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
+          setState(() => _bottomTabIndex = index);
+          if (index == 0) _hydrateParcelDuty();
+        },
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedScale(
-              scale: isActive ? 1.25 : 1.0,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              child: Icon(
-                icon,
-                color: isActive ? Colors.white : Colors.white70,
-                size: isActive ? 28 : 24,
-              ),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 46,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isActive ? const Color(0xFF149444) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, color: isActive ? Colors.white : const Color(0xFF9CA3AF), size: 22),
+                ),
+                if (badge > 0)
+                  Positioned(
+                    right: -4,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(color: const Color(0xFFE11D48), borderRadius: BorderRadius.circular(10)),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      child: Text(
+                        badge > 9 ? '9+' : '$badge',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 4),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: isActive ? Colors.white : Colors.white70,
-                fontSize: isActive ? 14 : 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                color: color,
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
               ),
-              child: Text(label),
             ),
           ],
         ),
@@ -5782,25 +8721,22 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   }
 
   Widget _buildBottomNavBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF369D01),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
+    return Material(
+      color: Colors.white,
+      elevation: 10,
+      shadowColor: const Color(0x1A000000),
       child: SafeArea(
         top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavItem(icon: Icons.home_outlined, label: 'Home', index: 0),
-            _buildNavItem(icon: Icons.account_balance_wallet_outlined, label: 'My Earnings', index: 1),
-            _buildNavItem(icon: Icons.local_activity, label: 'Activity', index: 2),
-            _buildNavItem(icon: Icons.settings_outlined, label: 'Settings', index: 3),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
+          child: Row(
+            children: [
+              _buildNavItem(icon: Icons.home_rounded, label: 'Home', index: 0),
+              _buildNavItem(icon: Icons.format_list_bulleted_rounded, label: 'Trips', index: 1, badge: _nearbyRequestCount),
+              _buildNavItem(icon: Icons.account_balance_wallet_outlined, label: 'Earnings', index: 2),
+              _buildNavItem(icon: Icons.person_outline_rounded, label: 'Profile', index: 3),
+            ],
+          ),
         ),
       ),
     );
@@ -5872,11 +8808,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
             Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
               ),
-              child: const Icon(Icons.notifications_none, color: Colors.black87),
+              child: Icon(Icons.notifications_none, color: Theme.of(context).colorScheme.onSurface),
             ),
           ],
         ),
@@ -5895,7 +8831,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: const Color(0xFF369D01),
-          border: Border.all(color: Colors.white, width: 4),
+          border: Border.all(color: Theme.of(context).colorScheme.surface, width: 4),
           boxShadow: const [
             BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 10)),
           ],
@@ -5911,7 +8847,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(color: Color(0x22000000), blurRadius: 10, offset: Offset(0, 3)),
@@ -5926,7 +8862,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         wrap(
           IconButton(
             onPressed: _moveToCurrentLocation,
-            icon: const Icon(Icons.refresh, color: Colors.black87),
+            icon: Icon(Icons.refresh, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
         const SizedBox(height: 10),
@@ -6022,22 +8958,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     try {
       var points = _directionsPointCache[cacheKey];
       if (points == null) {
-        final result = await _polylinePoints.getRouteBetweenCoordinates(
-          googleApiKey: _googleApiKey,
-          request: PolylineRequest(
-            origin: PointLatLng(pickup.latitude, pickup.longitude),
-            destination: PointLatLng(drop.latitude, drop.longitude),
-            mode: TravelMode.driving,
-          ),
-        );
-
-        points = result.points
-            .map((p) => LatLng(p.latitude, p.longitude))
-            .toList(growable: false);
-
-        if (points.isEmpty) {
+        final route = await fetchMapplsRoute(pickup, drop);
+        if (route == null) {
           points = <LatLng>[pickup, drop];
         } else {
+          points = route.points;
           _directionsPointCache[cacheKey] = points;
         }
       }
@@ -6061,9 +8986,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   }
 
   Future<void> _fitBoundsForPickupDrop(LatLng pickup, LatLng drop) async {
-    if (!_mapController.isCompleted) return;
-
-    final map = await _mapController.future;
+    final map = _liveMap ?? (_mapController.isCompleted ? await _mapController.future : null);
+    if (map == null) return;
 
     final sw = LatLng(
       pickup.latitude < drop.latitude ? pickup.latitude : drop.latitude,
@@ -6106,6 +9030,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
         initialPrice: rideState.offerFare,
         baseFare: rideState.baseFare,
         initialPayment: _selectedPayment,
+        coupon: rideState.appliedCoupon,
+        onDraftFare: rideState.setOfferFare,
         onPaymentChanged: (value) {
           setState(() {
             _selectedPayment = value;
@@ -6120,6 +9046,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     if (result == -2) {
       if (!mounted) return;
       await _openCouponSheet();
+      if (!mounted) return;
+      await _openSetPriceSheet();
       return;
     }
 
@@ -6127,20 +9055,34 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
   }
 
   Future<void> _openCouponSheet() async {
-    final result = await showModalBottomSheet<String?>(
+    final rideState = context.read<RideBookingState>();
+    final result = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) => const ApplyCouponBottomSheet(),
+      builder: (context) => ApplyCouponBottomSheet(
+        audience: 'driver',
+        orderAmount: rideState.offerFare > 0 ? rideState.offerFare : rideState.baseFare,
+        currentCode: (rideState.appliedCoupon?['code'] ?? '').toString(),
+      ),
     );
 
-    if (!mounted) return;
-    if (result == null || result.trim().isEmpty) return;
+    if (!mounted || result == null) return;
+    if (result['remove'] == true) {
+      rideState.setAppliedCoupon(null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Coupon removed')),
+      );
+      return;
+    }
 
+    rideState.setAppliedCoupon(result);
+    final code = (result['code'] ?? '').toString();
+    final off = result['discount'];
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Coupon applied: ${result.trim()}')),
+      SnackBar(content: Text(off == null ? 'Coupon applied: $code' : 'Coupon $code applied. You save ₹$off')),
     );
   }
 
@@ -6249,27 +9191,122 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     if (_bottomTabIndex == 0) {
       content = _dashboardHome();
     } else if (_bottomTabIndex == 1) {
-      content = const MyEarningsScreen();
-    } else if (_bottomTabIndex == 2) {
       content = const ActivityScreen(initialIndex: 0);
+    } else if (_bottomTabIndex == 2) {
+      content = const MyEarningsScreen();
     } else if (_bottomTabIndex == 3) {
       content = const SettingsScreen();
     } else {
-      final titles = ['Home', 'My Earnings', 'Activity', 'Settings'];
-      content = Center(
-        child: Text(
-          titles[_bottomTabIndex],
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-      );
+      content = const SizedBox.shrink();
     }
 
-    return Scaffold(
+    final lightStatus = _bottomTabIndex != 0;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _onSystemBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: (lightStatus ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Scaffold(
       key: _scaffoldKey,
       drawer: _drawerContent(),
-      body: content,
-      bottomNavigationBar: _buildBottomNavBar(),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: Stack(
+            children: [
+              content,
+              if (_accountHold == 'under_review') _accountReviewBanner(),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _buildBottomNavBar(),
+              ),
+              if (_bottomTabIndex == 0 && _activeRide != null && !_otpSheetOpen)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 86),
+                  child: _activeTripCard(_activeRide!),
+                ),
+              if (_bottomTabIndex == 0) _incomingRequestsLayer(),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  Widget _accountReviewBanner() {
+    final zoneNote = _serviceState.trim().isEmpty ? '' : ' Zone: $_serviceState.';
+    return Positioned(
+      left: 12,
+      right: 12,
+      top: MediaQuery.of(context).padding.top + 8,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8E1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFF6C445)),
+            boxShadow: const [
+              BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 4)),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.hourglass_top_rounded, color: Color(0xFF8A5A00)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Account under review',
+                      style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF6B4300)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'You can keep using the app. Going online stays off until support resolves the expiry review. Call 9646006716 or email vitevikle@gmail.com.$zoneNote',
+                      style: const TextStyle(fontSize: 12.5, height: 1.35, color: Color(0xFF6B4300)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onSystemBack() {
+    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (_bottomTabIndex != 0) {
+      setState(() => _bottomTabIndex = 0);
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastExitPrompt == null || now.difference(_lastExitPrompt!) > const Duration(seconds: 2)) {
+      _lastExitPrompt = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    SystemNavigator.pop();
   }
 
   Widget _buildVehicleTypesStrip() {
@@ -6286,7 +9323,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
             child: SizedBox(
               height: 18,
               width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: ViteLoader(strokeWidth: 2),
             ),
           );
         }
@@ -6359,7 +9396,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                   child: SizedBox(
                                     height: 16,
                                     width: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: ViteLoader(strokeWidth: 2),
                                   ),
                                 );
                               },
@@ -6405,7 +9442,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -6447,7 +9484,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                   },
                 );
               } else {
-                leading = Icon(icon ?? Icons.payments, size: 24, color: Colors.black87);
+                leading = Icon(icon ?? Icons.payments, size: 24, color: Theme.of(context).colorScheme.onSurface);
               }
 
               return GestureDetector(
@@ -6461,7 +9498,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isSelected ? const Color(0xFF37AF00) : Colors.grey.shade300,
@@ -6491,10 +9528,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                       Expanded(
                         child: Text(
                           name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -6577,7 +9614,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                                     child: SizedBox(
                                       height: 22,
                                       width: 22,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: ViteLoader(strokeWidth: 2),
                                     ),
                                   ),
                                 );
@@ -6683,7 +9720,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
                             child: SizedBox(
                               height: 22,
                               width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: ViteLoader(strokeWidth: 2),
                             ),
                           );
                         }
@@ -6793,12 +9830,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
               child: SizedBox(
                 height: 18,
                 width: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: ViteLoader(strokeWidth: 2),
               ),
             );
           }
 
-          final items = snapshot.data ?? const <ServiceCategory>[];
+          final all = snapshot.data ?? const <ServiceCategory>[];
+          final items = _zoneServiceIds.isEmpty
+              ? all
+              : all.where((item) => _zoneServiceIds.contains(item.id)).toList();
           if (items.isEmpty) return const SizedBox.shrink();
 
           if (_selectedServiceIndex >= items.length) {
@@ -6924,10 +9964,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with WidgetsBindingObserv
 class _RideAcceptedBottomSheet extends StatefulWidget {
   final Map<String, dynamic> ride;
   final VoidCallback onCancel;
+  final Future<void> Function(int minutes) onPickTime;
 
   const _RideAcceptedBottomSheet({
     required this.ride,
     required this.onCancel,
+    required this.onPickTime,
   });
 
   @override
@@ -6962,6 +10004,32 @@ class _RideAcceptedBottomSheetState extends State<_RideAcceptedBottomSheet> {
   void _stopCancelFill() {
     _cancelTimer?.cancel();
     _cancelTimer = null;
+  }
+
+  Future<void> _pickArrival(int minutes) async {
+    _stopCancelFill();
+    await widget.onPickTime(minutes);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Widget _timeButton(String label, int minutes, {Color color = const Color(0xFF22C55E)}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SizedBox(
+        height: 48,
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () => _pickArrival(minutes),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        ),
+      ),
+    );
   }
 
   void _startCancelFill() {
@@ -7011,13 +10079,15 @@ class _RideAcceptedBottomSheetState extends State<_RideAcceptedBottomSheet> {
     final fare = _fareOf(ride);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.88),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(color: Color(0x22000000), blurRadius: 18, offset: Offset(0, -6)),
         ],
       ),
+      child: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -7042,13 +10112,13 @@ class _RideAcceptedBottomSheetState extends State<_RideAcceptedBottomSheet> {
                   children: [
                     CircleAvatar(
                       radius: 22,
-                      backgroundColor: const Color(0xFFF3F4F6),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
                       backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
                       child: hasImage
                           ? null
                           : Text(
                               name.isNotEmpty ? name[0].toUpperCase() : 'R',
-                              style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black87),
+                              style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                             ),
                     ),
                     const SizedBox(width: 12),
@@ -7069,7 +10139,7 @@ class _RideAcceptedBottomSheetState extends State<_RideAcceptedBottomSheet> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
+                                  color: Theme.of(context).colorScheme.surface,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -7133,33 +10203,15 @@ class _RideAcceptedBottomSheetState extends State<_RideAcceptedBottomSheet> {
                 const SizedBox(height: 16),
                 const Text(
                   'How soon will you arrive?',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 10),
-                _ArrivalButton(
-                  label: 'Arriving in 5 min',
-                  minutes: 5,
-                  ride: ride,
-                  googleApiKey: _HomeMapScreenState._googleApiKey,
-                  onBeforeTap: _stopCancelFill,
-                ),
-                const SizedBox(height: 10),
-                _ArrivalButton(
-                  label: 'Arriving in 10 min',
-                  minutes: 10,
-                  ride: ride,
-                  googleApiKey: _HomeMapScreenState._googleApiKey,
-                  onBeforeTap: _stopCancelFill,
-                ),
-                const SizedBox(height: 10),
-                _ArrivalButton(
-                  label: 'Arriving in 15 min',
-                  minutes: 15,
-                  ride: ride,
-                  googleApiKey: _HomeMapScreenState._googleApiKey,
-                  onBeforeTap: _stopCancelFill,
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
+                _timeButton('5 min.', 5),
+                _timeButton('10 min.', 10),
+                _timeButton('15 min.', 15),
+                _timeButton('20 min.', 20),
+                _timeButton('Default Time', 10, color: const Color(0xFF009640)),
+                const SizedBox(height: 4),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final w = constraints.maxWidth;
@@ -7217,6 +10269,7 @@ class _RideAcceptedBottomSheetState extends State<_RideAcceptedBottomSheet> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -7384,8 +10437,8 @@ class _ConfirmFareUIState extends State<ConfirmFareUI> {
           child: Container(
             height: 300,
             padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
             ),
             child: Column(
@@ -7451,8 +10504,8 @@ class _ConfirmFareUIState extends State<ConfirmFareUI> {
           top: 14,
           bottom: 16 + MediaQuery.of(context).padding.bottom,
         ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
         child: Column(
@@ -7604,14 +10657,12 @@ class _ArrivalButton extends StatelessWidget {
   final String label;
   final int minutes;
   final Map<String, dynamic> ride;
-  final String googleApiKey;
   final VoidCallback? onBeforeTap;
 
   const _ArrivalButton({
     required this.label,
     required this.minutes,
     required this.ride,
-    required this.googleApiKey,
     this.onBeforeTap,
   });
 
@@ -7623,16 +10674,6 @@ class _ArrivalButton extends StatelessWidget {
       child: InkWell(
         onTap: () {
           onBeforeTap?.call();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PickupMapScreen(
-                ride: ride,
-                arrivalMinutes: minutes,
-                googleApiKey: googleApiKey,
-              ),
-            ),
-          );
         },
         borderRadius: BorderRadius.circular(14),
         child: Container(
@@ -7649,6 +10690,178 @@ class _ArrivalButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PulseDot extends StatefulWidget {
+  const _PulseDot({required this.active});
+
+  final bool active;
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.active ? const Color(0xFF149444) : const Color(0xFF9CA3AF);
+    return FadeTransition(
+      opacity: widget.active ? Tween<double>(begin: 0.35, end: 1).animate(_controller) : const AlwaysStoppedAnimation<double>(1),
+      child: Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    );
+  }
+}
+
+class _GoalRingPainter extends CustomPainter {
+  const _GoalRingPainter(this.progress);
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = 7.0;
+    final rect = Offset.zero & size;
+    final arc = rect.deflate(stroke / 2);
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFE5E7EB);
+    final fill = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF149444);
+    canvas.drawArc(arc, -pi / 2, pi * 2, false, track);
+    if (progress > 0) canvas.drawArc(arc, -pi / 2, pi * 2 * progress.clamp(0, 1), false, fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GoalRingPainter oldDelegate) => oldDelegate.progress != progress;
+}
+
+class _DutySlide extends StatefulWidget {
+  const _DutySlide({required this.online, required this.busy, required this.onChanged});
+
+  final bool online;
+  final bool busy;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  State<_DutySlide> createState() => _DutySlideState();
+}
+
+class _DutySlideState extends State<_DutySlide> {
+  double _progress = 0;
+  bool _dragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress = widget.online ? 1 : 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _DutySlide oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_dragging && oldWidget.online != widget.online) {
+      _progress = widget.online ? 1 : 0;
+    }
+  }
+
+  void _finish() {
+    final next = _progress >= 0.55;
+    setState(() {
+      _dragging = false;
+      _progress = next ? 1 : 0;
+    });
+    if (!widget.busy && next != widget.online) widget.onChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final online = _progress >= 0.55;
+    final label = widget.busy ? 'Please wait' : (online ? 'Swipe to go offline' : 'Swipe to go online');
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const knob = 48.0;
+        const inset = 4.0;
+        final travel = (constraints.maxWidth - knob - inset * 2).clamp(0.0, constraints.maxWidth);
+        final dx = inset + travel * _progress;
+        return GestureDetector(
+          onHorizontalDragStart: widget.busy ? null : (_) => setState(() => _dragging = true),
+          onHorizontalDragUpdate: widget.busy
+              ? null
+              : (details) {
+                  if (travel <= 0) return;
+                  setState(() => _progress = (_progress + details.delta.dx / travel).clamp(0.0, 1.0));
+                },
+          onHorizontalDragEnd: widget.busy ? null : (_) => _finish(),
+          onHorizontalDragCancel: widget.busy ? null : _finish,
+          child: AnimatedContainer(
+            duration: _dragging ? Duration.zero : const Duration(milliseconds: 220),
+            height: 56,
+            decoration: BoxDecoration(
+              color: online ? const Color(0xFF149444) : const Color(0xFFE8EEF0),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 6)),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(left: online ? 0 : 36, right: online ? 36 : 0),
+                  child: Text(label, style: TextStyle(color: online ? Colors.white : const Color(0xFF374151), fontWeight: FontWeight.w800, fontSize: 15)),
+                ),
+                AnimatedPositioned(
+                  duration: _dragging ? Duration.zero : const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  left: dx,
+                  top: inset,
+                  child: Container(
+                    width: knob,
+                    height: knob,
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, shape: BoxShape.circle),
+                    child: Icon(
+                      online ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: online ? const Color(0xFFB91C1C) : const Color(0xFF149444),
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _IncomingChoice {
+  const _IncomingChoice({
+    required this.id,
+    required this.card,
+  });
+
+  final String id;
+  final Widget card;
 }
 
 

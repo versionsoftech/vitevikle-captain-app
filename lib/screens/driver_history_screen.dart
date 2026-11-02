@@ -1,10 +1,12 @@
-﻿import 'dart:convert';
+import 'dart:convert';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/dio_client.dart';
+import 'package:vite_captain/screens/activity/trip_detail_screen.dart';
 import 'package:vite_captain/services/session_service.dart';
 
 class DriverHistoryScreen extends StatefulWidget {
@@ -15,7 +17,7 @@ class DriverHistoryScreen extends StatefulWidget {
 }
 
 class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
-  static const _green = Color(0xFF00A651);
+  static const _green = Color(0xFF009640);
 
   bool _loading = true;
   List<Map<String, dynamic>> _rides = <Map<String, dynamic>>[];
@@ -142,7 +144,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('History'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
@@ -150,7 +152,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         onRefresh: _load,
         color: _green,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: ViteLoader())
             : _rides.isEmpty
                 ? ListView(
                     children: const [
@@ -197,10 +199,19 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     final duration = _text(ride['duration']);
     final amount = _asDouble(ride['amount']);
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TripDetailScreen(trip: ride, kind: isParcel ? 'parcel' : 'ride'),
+          ),
+        );
+      },
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -270,11 +281,11 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
                 const SizedBox(width: 6),
                 Text(isParcel ? 'Parcel' : _vehicleLabel(vehicleTypeRaw), style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(width: 14),
-                const Icon(Icons.route, size: 18, color: Colors.black87),
+                Icon(Icons.route, size: 18, color: Theme.of(context).colorScheme.onSurface),
                 const SizedBox(width: 6),
                 Text(distance, style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(width: 14),
-                const Icon(Icons.timer, size: 18, color: Colors.black87),
+                Icon(Icons.timer, size: 18, color: Theme.of(context).colorScheme.onSurface),
                 const SizedBox(width: 6),
                 Text(duration, style: const TextStyle(fontWeight: FontWeight.w800)),
               ],
@@ -283,8 +294,8 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF0FFF7),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),
@@ -304,6 +315,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

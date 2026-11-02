@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/modules/registration/personal_picture_camera_screen.dart';
 
 class PersonalPictureGuideScreen extends StatelessWidget {
@@ -11,15 +11,15 @@ class PersonalPictureGuideScreen extends StatelessWidget {
   final String driverId;
   final String mobile;
 
-  static const Color _green = Color(0xFF369D01);
+  static const Color _green = Color(0xFF009640);
   static const Color _lightGreen = Color(0xFFB7E11A);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         title: const Text(
@@ -34,9 +34,9 @@ class PersonalPictureGuideScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8),
-              _instructionRow('Take a clear picture in good light with clothes on'),
+              _instructionRow(context, 'Take a clear picture in good light with clothes on'),
               const SizedBox(height: 10),
-              _instructionRow('No filters, sunglasses, or masks'),
+              _instructionRow(context, 'No filters, sunglasses, or masks'),
               const SizedBox(height: 22),
               Expanded(
                 child: Center(
@@ -47,7 +47,7 @@ class PersonalPictureGuideScreen extends StatelessWidget {
                         Positioned.fill(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF6F7F9),
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(18),
                             ),
                           ),
@@ -61,7 +61,7 @@ class PersonalPictureGuideScreen extends StatelessWidget {
                                 child: Icon(
                                   Icons.person_outline,
                                   size: 160,
-                                  color: Colors.black.withOpacity(0.55),
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
                                 ),
                               ),
                             ),
@@ -108,7 +108,7 @@ class PersonalPictureGuideScreen extends StatelessWidget {
     );
   }
 
-  Widget _instructionRow(String text) {
+  Widget _instructionRow(BuildContext context, String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -117,7 +117,7 @@ class PersonalPictureGuideScreen extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black87),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
       ],

@@ -42,7 +42,7 @@ class _SafetyToolkitScreenState extends State<SafetyToolkitScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Safety toolkit'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
@@ -52,11 +52,11 @@ class _SafetyToolkitScreenState extends State<SafetyToolkitScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'At Rapido, your safety comes first. Here are some measures and provisions to ensure your safety.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                   height: 1.25,
                 ),
               ),
@@ -107,19 +107,19 @@ class _SafetyToolkitScreenState extends State<SafetyToolkitScreen> {
                 }),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Settings',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -181,7 +181,7 @@ class _SafetyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(

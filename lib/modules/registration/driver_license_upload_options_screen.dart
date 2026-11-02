@@ -34,9 +34,9 @@ class DriverLicenseUploadOptionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black87,
         elevation: 0,
         leading: IconButton(
@@ -60,7 +60,7 @@ class DriverLicenseUploadOptionsScreen extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 _title,
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.black87),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(height: 14),
               _check(context, _headline),
@@ -112,12 +112,12 @@ class DriverLicenseUploadOptionsScreen extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.check, color: Colors.black87, size: 18),
+        Icon(Icons.check, color: Theme.of(context).colorScheme.onSurface, size: 18),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black87),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
       ],

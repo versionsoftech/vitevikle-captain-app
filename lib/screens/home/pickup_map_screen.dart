@@ -1,11 +1,12 @@
-﻿import 'dart:async';
+import 'dart:async';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:vite_captain/maps/mappls_map.dart';
+import 'package:vite_captain/maps/mappls_routes.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vite_captain/screens/chat/ride_chat_screen.dart';
@@ -16,17 +17,16 @@ import 'package:vite_captain/screens/home/navigation_map_screen.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/session_service.dart';
 import 'package:vite_captain/services/chat_notification_provider.dart';
+import 'package:vite_captain/widgets/send_ride_notification_sheet.dart';
 
 class PickupMapScreen extends StatefulWidget {
   final Map<String, dynamic> ride;
   final int arrivalMinutes;
-  final String googleApiKey;
 
   const PickupMapScreen({
     super.key,
     required this.ride,
     required this.arrivalMinutes,
-    required this.googleApiKey,
   });
 
   @override
@@ -34,12 +34,11 @@ class PickupMapScreen extends StatefulWidget {
 }
 
 class _PickupMapScreenState extends State<PickupMapScreen> {
-  static const themeGreen = Color(0xFF00A651);
+  static const themeGreen = Color(0xFF009640);
 
   final LocationService _locationService = const LocationService();
-  final PolylinePoints _polylinePoints = PolylinePoints();
 
-  GoogleMapController? _map;
+  MapplsViewController? _map;
   LatLng? _driverLatLng;
   LatLng? _pickupLatLng;
 
@@ -243,23 +242,6 @@ class _PickupMapScreenState extends State<PickupMapScreen> {
     return LatLng(lat, lng);
   }
 
-  Uri _buildDirectionsUri({
-    required LatLng origin,
-    required LatLng destination,
-    required String apiKey,
-  }) {
-    return Uri.https(
-      'maps.googleapis.com',
-      '/maps/api/directions/json',
-      <String, String>{
-        'origin': '${origin.latitude},${origin.longitude}',
-        'destination': '${destination.latitude},${destination.longitude}',
-        'mode': 'driving',
-        'key': apiKey,
-      },
-    );
-  }
-
   Future<void> _fitBounds(LatLng a, LatLng b) async {
     final map = _map;
     if (map == null) return;
@@ -346,51 +328,18 @@ class _PickupMapScreenState extends State<PickupMapScreen> {
   }
 
   Future<void> _loadRoute(LatLng origin, LatLng destination) async {
-    final apiKey = widget.googleApiKey.trim();
-    if (apiKey.isEmpty) return;
-
     try {
-      final res = await DioClient.dio.get(
-        _buildDirectionsUri(
-          origin: origin,
-          destination: destination,
-          apiKey: apiKey,
-        ).toString(),
-      );
-
-      dynamic raw = res.data;
-      if (raw is String) raw = jsonDecode(raw);
-      final data = raw as Map<String, dynamic>;
-      final routes = (data['routes'] as List<dynamic>? ?? []);
-      if (routes.isEmpty) return;
-
-      final route0 = routes.first as Map<String, dynamic>;
-      final overview = (route0['overview_polyline'] as Map<String, dynamic>?) ?? {};
-      final encoded = (overview['points'] as String?) ?? '';
-      if (encoded.isEmpty) return;
-
-      final decoded = _polylinePoints
-          .decodePolyline(encoded)
-          .map((p) => LatLng(p.latitude, p.longitude))
-          .toList(growable: false);
-
-      final legs = (route0['legs'] as List<dynamic>? ?? []);
-      String? distance;
-      String? duration;
-      if (legs.isNotEmpty) {
-        final leg0 = legs.first as Map<String, dynamic>;
-        distance = (leg0['distance'] as Map<String, dynamic>?)?['text']?.toString();
-        duration = (leg0['duration'] as Map<String, dynamic>?)?['text']?.toString();
-      }
+      final route = await fetchMapplsRoute(origin, destination);
+      if (route == null) return;
 
       if (!mounted) return;
       setState(() {
-        _distanceText = distance;
-        _durationText = duration;
+        _distanceText = route.distanceText;
+        _durationText = route.durationText;
         _polylines = {
           Polyline(
             polylineId: const PolylineId('route'),
-            points: decoded.isNotEmpty ? decoded : [origin, destination],
+            points: route.points,
             color: themeGreen,
             width: 5,
             geodesic: true,
@@ -461,18 +410,27 @@ class _PickupMapScreenState extends State<PickupMapScreen> {
     final pickupLatLng = _pickupLatLng;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Go to Pick up'),
         backgroundColor: themeGreen,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Send notification',
+            onPressed: () => showSendRideNotificationSheet(context, widget.ride),
+            icon: const Icon(Icons.notifications_rounded),
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,
         child: Stack(
           children: [
-            GoogleMap(
+            MapplsView(
               initialCameraPosition: CameraPosition(
                 target: pickupLatLng ?? const LatLng(20.5937, 78.9629),
                 zoom: 13,
@@ -501,7 +459,6 @@ class _PickupMapScreenState extends State<PickupMapScreen> {
                 durationText: _durationText,
                 ratingText: rating,
                 arrivalMinutes: widget.arrivalMinutes,
-                googleApiKey: widget.googleApiKey,
                 ride: widget.ride,
                 onGoToPickup: () {
                   Navigator.push(
@@ -509,7 +466,6 @@ class _PickupMapScreenState extends State<PickupMapScreen> {
                     MaterialPageRoute(
                       builder: (context) => NavigationMapScreen(
                         ride: widget.ride,
-                        googleApiKey: widget.googleApiKey,
                       ),
                     ),
                   );
@@ -526,7 +482,7 @@ class _PickupMapScreenState extends State<PickupMapScreen> {
                 child: SizedBox(
                   height: 22,
                   width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: ViteLoader(strokeWidth: 2),
                 ),
               ),
           ],
@@ -538,7 +494,6 @@ class _PickupMapScreenState extends State<PickupMapScreen> {
 
 class _BottomRideCard extends StatelessWidget {
   final Map<String, dynamic> ride;
-  final String googleApiKey;
   final String riderName;
   final String? riderImageUrl;
   final String riderId;
@@ -554,7 +509,6 @@ class _BottomRideCard extends StatelessWidget {
 
   const _BottomRideCard({
     required this.ride,
-    required this.googleApiKey,
     required this.riderName,
     required this.riderImageUrl,
     required this.riderId,
@@ -574,7 +528,7 @@ class _BottomRideCard extends StatelessWidget {
     required IconData icon,
     required String label,
   }) {
-    const themeGreen = Color(0xFF00A651);
+    const themeGreen = Color(0xFF009640);
 
     Future<void> doCall() async {
       final p = riderPhone.trim();
@@ -626,7 +580,7 @@ class _BottomRideCard extends StatelessWidget {
         child: Container(
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(14),
           ),
           child: label.toLowerCase() == 'message'
@@ -664,7 +618,7 @@ class _BottomRideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const themeGreen = Color(0xFF00A651);
+    const themeGreen = Color(0xFF009640);
 
     final hasImage = riderImageUrl != null && (riderImageUrl!.startsWith('http://') || riderImageUrl!.startsWith('https://'));
 
@@ -680,7 +634,7 @@ class _BottomRideCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(24),
           boxShadow: const [
             BoxShadow(color: Color(0x1A000000), blurRadius: 18, offset: Offset(0, 8)),
@@ -694,13 +648,13 @@ class _BottomRideCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor: const Color(0xFFF3F4F6),
+                  backgroundColor: Theme.of(context).colorScheme.surface,
                   backgroundImage: hasImage ? NetworkImage(riderImageUrl!) : null,
                   child: hasImage
                       ? null
                       : Text(
                           riderName.isNotEmpty ? riderName[0].toUpperCase() : 'C',
-                          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black87),
+                          style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurface),
                         ),
                 ),
                 const SizedBox(width: 12),
@@ -721,7 +675,7 @@ class _BottomRideCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: const Color(0xFFE5E7EB)),
                             ),
@@ -745,7 +699,7 @@ class _BottomRideCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black.withOpacity(0.55),
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
                         ),
                       ),
                     ],
@@ -807,7 +761,7 @@ class _BottomRideCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFE5E7EB)),
                     ),

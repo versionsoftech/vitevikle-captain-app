@@ -1,4 +1,5 @@
-﻿import 'dart:convert';
+import 'dart:convert';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
@@ -225,7 +226,7 @@ class _TopupWalletScreenState extends State<TopupWalletScreen> {
         return const AlertDialog(
           content: Row(
             children: [
-              CircularProgressIndicator(),
+              ViteLoader(),
               SizedBox(width: 20),
               Text("Preparing Payment..."),
             ],
@@ -532,7 +533,7 @@ class _TopupWalletScreenState extends State<TopupWalletScreen> {
         leading: const BackButton(),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ViteLoader())
           : Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -542,7 +543,7 @@ class _TopupWalletScreenState extends State<TopupWalletScreen> {
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -582,7 +583,7 @@ class _TopupWalletScreenState extends State<TopupWalletScreen> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
@@ -647,7 +648,7 @@ class _TopupWalletScreenState extends State<TopupWalletScreen> {
                     height: 50,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF369D01),
+                        backgroundColor: const Color(0xFF009640),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),

@@ -21,7 +21,7 @@ Future<void> showPaymentReceivedPopup(
               margin: const EdgeInsets.symmetric(horizontal: 22),
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: ConstrainedBox(
@@ -33,10 +33,10 @@ Future<void> showPaymentReceivedPopup(
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E).withOpacity(0.12),
+                        color: const Color(0xFF009640).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 34),
+                      child: const Icon(Icons.check_circle, color: Color(0xFF009640), size: 34),
                     ),
                     const SizedBox(height: 12),
                     const Text(
@@ -63,7 +63,7 @@ Future<void> showPaymentReceivedPopup(
                       width: double.infinity,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF22C55E),
+                          backgroundColor: const Color(0xFF009640),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

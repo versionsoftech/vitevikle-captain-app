@@ -1,10 +1,14 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/services/payment_gateway_api.dart';
+import 'package:vite_captain/services/ride_booking_state.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 
 class SetPriceBottomSheet extends StatefulWidget {
   final int initialPrice;
   final int baseFare;
   final String initialPayment;
+  final Map<String, dynamic>? coupon;
+  final ValueChanged<int>? onDraftFare;
   final ValueChanged<String>? onPaymentChanged;
 
   const SetPriceBottomSheet({
@@ -12,6 +16,8 @@ class SetPriceBottomSheet extends StatefulWidget {
     this.initialPrice = 10,
     this.baseFare = 0,
     this.initialPayment = 'cash',
+    this.coupon,
+    this.onDraftFare,
     this.onPaymentChanged,
   });
 
@@ -28,6 +34,13 @@ class _SetPriceBottomSheetState extends State<SetPriceBottomSheet> {
   late String _selectedPayment;
   String _selectedPaymentLabel = 'Cash';
   IconData _selectedPaymentIcon = Icons.money;
+
+  int get _save => RideBookingState.couponOff(widget.coupon, _price);
+  int get _payable => (_price - _save).clamp(0, _price);
+  String get _couponTitle {
+    final code = (widget.coupon?['code'] ?? '').toString().trim();
+    return code.isEmpty ? 'Coupon' : code;
+  }
 
   final PaymentGatewayApi _paymentGatewayApi = const PaymentGatewayApi();
   Future<List<PaymentGatewayModel>>? _paymentGatewaysFuture;
@@ -82,7 +95,7 @@ class _SetPriceBottomSheetState extends State<SetPriceBottomSheet> {
     final result = await showModalBottomSheet<_PaymentSelectionResult>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -133,6 +146,7 @@ class _SetPriceBottomSheetState extends State<SetPriceBottomSheet> {
   Widget _rowTile({
     required IconData icon,
     required String title,
+    String? subtitle,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -141,18 +155,31 @@ class _SetPriceBottomSheetState extends State<SetPriceBottomSheet> {
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(
           children: [
-            Icon(icon, color: Colors.black87),
+            Icon(icon, color: Theme.of(context).colorScheme.onSurface),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (subtitle != null && subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFF009640),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.black45),
           ],
         ),
       ),
@@ -264,7 +291,7 @@ class _SetPriceBottomSheetState extends State<SetPriceBottomSheet> {
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.grey.shade200),
               ),
@@ -283,8 +310,12 @@ class _SetPriceBottomSheetState extends State<SetPriceBottomSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: _rowTile(
                       icon: Icons.local_offer,
-                      title: 'Coupon',
-                      onTap: () => Navigator.pop(context, _actionOpenCoupon),
+                      title: _couponTitle,
+                      subtitle: _save > 0 ? 'You save ₹$_save' : null,
+                      onTap: () {
+                        widget.onDraftFare?.call(_price);
+                        Navigator.pop(context, _actionOpenCoupon);
+                      },
                     ),
                   ),
                 ],
@@ -304,7 +335,7 @@ class _SetPriceBottomSheetState extends State<SetPriceBottomSheet> {
                   ),
                 ),
                 onPressed: () => Navigator.pop(context, _price),
-                child: Text('Book for \u20B9$_price'),
+                child: Text('Book for \u20B9$_payable'),
               ),
             ),
             const SizedBox(height: 10),
@@ -382,7 +413,7 @@ class _PaymentMethodBottomSheetState extends State<_PaymentMethodBottomSheet> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? const Color(0xFF37AF00) : Colors.grey.shade300,
@@ -412,10 +443,10 @@ class _PaymentMethodBottomSheetState extends State<_PaymentMethodBottomSheet> {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
@@ -483,12 +514,12 @@ class _PaymentMethodBottomSheetState extends State<_PaymentMethodBottomSheet> {
                   _paymentTile(
                     label: 'Cash',
                     value: 'cash',
-                    leading: const Icon(Icons.money, size: 24, color: Colors.black87),
+                    leading: Icon(Icons.money, size: 24, color: Theme.of(context).colorScheme.onSurface),
                   ),
                   _paymentTile(
                     label: 'Wallet',
                     value: 'wallet',
-                    leading: const Icon(Icons.account_balance_wallet, size: 24, color: Colors.black87),
+                    leading: Icon(Icons.account_balance_wallet, size: 24, color: Theme.of(context).colorScheme.onSurface),
                   ),
                   FutureBuilder<List<PaymentGatewayModel>>(
                     future: widget.gatewaysFuture,
@@ -500,7 +531,7 @@ class _PaymentMethodBottomSheetState extends State<_PaymentMethodBottomSheet> {
                             child: SizedBox(
                               height: 22,
                               width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: ViteLoader(strokeWidth: 2),
                             ),
                           ),
                         );
@@ -533,7 +564,7 @@ class _PaymentMethodBottomSheetState extends State<_PaymentMethodBottomSheet> {
                               },
                             );
                           } else {
-                            leading = Icon(_fallbackIcon(serial), size: 24, color: Colors.black87);
+                            leading = Icon(_fallbackIcon(serial), size: 24, color: Theme.of(context).colorScheme.onSurface);
                           }
 
                           return _paymentTile(

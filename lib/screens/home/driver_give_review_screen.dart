@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:vite_captain/screens/home_screen.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/session_service.dart';
@@ -26,7 +27,7 @@ class DriverGiveReviewScreen extends StatefulWidget {
 }
 
 class _DriverGiveReviewScreenState extends State<DriverGiveReviewScreen> {
-  static const Color primaryColor = Color(0xFF22C55E);
+  static const Color primaryColor = Color(0xFF009640);
 
   int rating = 0;
   String reviewText = '';
@@ -147,7 +148,7 @@ class _DriverGiveReviewScreenState extends State<DriverGiveReviewScreen> {
         return Material(
           color: Colors.transparent,
           child: Dialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 8,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -159,16 +160,16 @@ class _DriverGiveReviewScreenState extends State<DriverGiveReviewScreen> {
                 children: [
                   const Icon(
                     Icons.check_circle,
-                    color: Colors.green,
+                    color: const Color(0xFF009640),
                     size: 72,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     "Review Submitted",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -194,7 +195,7 @@ class _DriverGiveReviewScreenState extends State<DriverGiveReviewScreen> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: const Color(0xFF009640),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -296,10 +297,10 @@ class _DriverGiveReviewScreenState extends State<DriverGiveReviewScreen> {
     final displayName = _resolvedUserName.isEmpty ? 'Customer' : _resolvedUserName;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Rate User'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
@@ -330,7 +331,7 @@ class _DriverGiveReviewScreenState extends State<DriverGiveReviewScreen> {
                 radius: 40,
                 backgroundColor: primaryColor.withOpacity(0.12),
                 backgroundImage: _hasUserImage ? NetworkImage(_resolvedUserImageUrl) : null,
-                child: !_hasUserImage ? const Icon(Icons.person, size: 42, color: Colors.black87) : null,
+                child: !_hasUserImage ? Icon(Icons.person, size: 42, color: Theme.of(context).colorScheme.onSurface) : null,
               ),
               const SizedBox(height: 20),
               Text(
@@ -400,7 +401,7 @@ class _DriverGiveReviewScreenState extends State<DriverGiveReviewScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: ViteLoader(strokeWidth: 2, color: Colors.white),
                         )
                       : const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                 ),

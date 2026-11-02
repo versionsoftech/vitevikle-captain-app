@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 class WithdrawRequestDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> withdraw;
 
-  static const Color _primary = Color(0xFF369D01);
+  static const Color _primary = Color(0xFF009640);
 
   const WithdrawRequestDetailsScreen({
     super.key,
@@ -44,7 +44,7 @@ class WithdrawRequestDetailsScreen extends StatelessWidget {
   Color _statusColor(String s) {
     switch (s.trim().toLowerCase()) {
       case 'approved':
-        return Colors.green;
+        return const Color(0xFF009640);
       case 'rejected':
         return Colors.red;
       case 'processing':
@@ -128,7 +128,7 @@ class WithdrawRequestDetailsScreen extends StatelessWidget {
     final remark = (withdraw['remarks'] ?? withdraw['remark'] ?? withdraw['adminRemark'] ?? '').toString().trim();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7F9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: ClipRRect(
@@ -154,7 +154,7 @@ class WithdrawRequestDetailsScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -187,7 +187,7 @@ class WithdrawRequestDetailsScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(

@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:provider/provider.dart';
 import 'package:vite_captain/providers/document_verification_provider.dart';
 import 'package:vite_captain/screens/documents/aadhar_verification_screen.dart';
@@ -7,6 +8,7 @@ import 'package:vite_captain/screens/documents/pan_verification_screen.dart';
 import 'package:vite_captain/screens/documents/license_verification_screen.dart';
 import 'package:vite_captain/screens/documents/voter_verification_screen.dart';
 import 'package:vite_captain/services/session_service.dart';
+import 'package:vite_captain/widgets/curved_green_app_bar.dart';
 
 class DocumentVerificationMenuScreen extends StatefulWidget {
   const DocumentVerificationMenuScreen({super.key});
@@ -69,7 +71,7 @@ class _DocumentVerificationMenuScreenState extends State<DocumentVerificationMen
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE5E7EB)),
           boxShadow: const [
@@ -95,25 +97,30 @@ class _DocumentVerificationMenuScreenState extends State<DocumentVerificationMen
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: badgeBg,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                _badgeText(status),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: badgeFg,
+            SizedBox(
+              width: 88,
+              child: Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _badgeText(status),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: badgeFg,
+                  ),
                 ),
               ),
             ),
@@ -129,15 +136,7 @@ class _DocumentVerificationMenuScreenState extends State<DocumentVerificationMen
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text(
-          'Document Verification',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-      ),
+      appBar: curvedGreenAppBar(title: 'Document Registration'),
       body: SafeArea(
         child: Consumer<DocumentVerificationProvider>(
           builder: (context, docs, _) {
@@ -165,14 +164,14 @@ class _DocumentVerificationMenuScreenState extends State<DocumentVerificationMen
               children: [
                 if (docs.loadingConfigs) ...[
                   const SizedBox(height: 6),
-                  const Center(child: CircularProgressIndicator()),
+                  const Center(child: ViteLoader()),
                   const SizedBox(height: 14),
                 ],
                 if (!docs.loadingConfigs && docs.configError != null) ...[
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
@@ -288,7 +287,7 @@ class _DocumentVerificationMenuScreenState extends State<DocumentVerificationMen
                           allApproved
                               ? 'All documents are approved. You can go online.'
                               : 'Complete document verification to go online.',
-                          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
+                          style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
                         ),
                       ),
                     ],

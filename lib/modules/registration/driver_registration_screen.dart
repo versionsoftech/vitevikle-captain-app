@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:vite_captain/widgets/vite_loader.dart';
 import 'package:vite_captain/services/api_service.dart';
 import 'package:vite_captain/services/local_storage_service.dart';
 import 'package:vite_captain/services/session_service.dart';
@@ -55,10 +56,10 @@ class _DriverRegistrationScreenState extends State<DriverRegistrationScreen> {
         alignment: Alignment.centerLeft,
         child: Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ),
@@ -76,10 +77,10 @@ class _DriverRegistrationScreenState extends State<DriverRegistrationScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 8),
@@ -223,7 +224,7 @@ class _DriverRegistrationScreenState extends State<DriverRegistrationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Driver Registration'),
-        backgroundColor: const Color(0xFF369D01),
+        backgroundColor: const Color(0xFF009640),
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
@@ -233,12 +234,12 @@ class _DriverRegistrationScreenState extends State<DriverRegistrationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Create Your Account',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 4),
@@ -276,7 +277,7 @@ class _DriverRegistrationScreenState extends State<DriverRegistrationScreen> {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF369D01),
+                    backgroundColor: const Color(0xFF009640),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -287,7 +288,7 @@ class _DriverRegistrationScreenState extends State<DriverRegistrationScreen> {
                       ? const SizedBox(
                           height: 22,
                           width: 22,
-                          child: CircularProgressIndicator(
+                          child: ViteLoader(
                             strokeWidth: 2.5,
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),

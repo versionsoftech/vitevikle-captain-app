@@ -120,7 +120,7 @@ class PassbookScreen extends StatelessWidget {
     final List<PassbookTransaction> transactions = const [];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -128,7 +128,7 @@ class PassbookScreen extends StatelessWidget {
         ),
         title: const Text('Passbook'),
         actions: [_helpButton(context)],
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 1,
       ),

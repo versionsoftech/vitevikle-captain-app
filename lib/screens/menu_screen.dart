@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vite_captain/screens/profile_screen.dart';
 import 'package:vite_captain/screens/my_rating_screen.dart';
 import 'package:vite_captain/screens/payments_screen.dart';
@@ -101,7 +101,7 @@ class _MenuScreenState extends State<MenuScreen> {
             Navigator.pop(context);
           },
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Colors.black,
         elevation: 1,
       ),
@@ -114,7 +114,7 @@ class _MenuScreenState extends State<MenuScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -288,7 +288,7 @@ class _MenuScreenState extends State<MenuScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF369D01),
+                color: const Color(0xFF009640),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Row(
