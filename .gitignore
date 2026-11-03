@@ -65,3 +65,5 @@ error_log.txt
 *.olf
 *.a.conf
 android/app/src/debug/assets/
+
+android/app/src/release/assets/
